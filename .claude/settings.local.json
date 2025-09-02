@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(npx tailwindcss init:*)",
+      "Bash(./node_modules/.bin/tailwindcss:*)",
+      "Bash(mkdir:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run test:run:*)",
+      "Bash(npm run quality:check:*)",
+      "Bash(npm run lint:*)",
+      "Bash(find:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(grep:*)",
+      "Bash(npm run build:*)",
+      "Bash(git init:*)",
+      "Bash(ls:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ],
+    "deny": []
+  }
+}
