@@ -1,0 +1,274 @@
+/**
+ * Chess Trainer - Main CSS
+ * 
+ * Combines Tailwind CSS base styles with custom components
+ * for the chess training application.
+ */
+
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Base styles and CSS reset */
+@layer base {
+  html {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: theme('colors.gray.50');
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  /* Focus styles for accessibility */
+  *:focus {
+    outline: 2px solid theme('colors.chess.primary');
+    outline-offset: 2px;
+  }
+
+  button:focus {
+    outline: 2px solid theme('colors.chess.primary');
+    outline-offset: 2px;
+  }
+}
+
+/* Component layer for reusable chess components */
+@layer components {
+  /* Chessboard container styling */
+  .chessboard-container {
+    @apply relative overflow-hidden rounded-lg;
+    
+    /* Ensure the board maintains aspect ratio */
+    aspect-ratio: 1;
+    
+    /* Custom CSS variables for chessground theming */
+    --cg-coord-color: theme('colors.gray.600');
+    --cg-coord-size: 12px;
+    --cg-coord-weight: 500;
+  }
+
+  /* Custom chessground styles */
+  .chessboard-container cg-board {
+    @apply rounded-lg overflow-hidden;
+  }
+
+  /* Chess piece animations - ensure 60fps */
+  .chessboard-container piece {
+    transition: transform 0.2s cubic-bezier(0.23, 1, 0.320, 1);
+    will-change: transform;
+  }
+
+  /* Move highlight colors */
+  .chessboard-container square.move-dest {
+    background: radial-gradient(
+      circle,
+      theme('colors.chess.accent') 20%,
+      transparent 22%
+    ) !important;
+  }
+
+  .chessboard-container square.premove-dest {
+    background: radial-gradient(
+      circle,
+      theme('colors.yellow.400') 20%,
+      transparent 22%
+    ) !important;
+  }
+
+  /* Last move highlighting */
+  .chessboard-container square.last-move {
+    background-color: theme('colors.chess.secondary') !important;
+  }
+
+  /* Check highlighting */
+  .chessboard-container square.check {
+    background-color: theme('colors.red.200') !important;
+  }
+
+  /* Button components */
+  .btn-primary {
+    @apply bg-chess-primary text-white px-4 py-2 rounded font-medium;
+    @apply hover:bg-opacity-90 focus:ring-2 focus:ring-chess-primary focus:ring-opacity-50;
+    @apply transition-all duration-200 ease-in-out;
+  }
+
+  .btn-secondary {
+    @apply bg-chess-secondary text-chess-primary px-4 py-2 rounded font-medium;
+    @apply hover:bg-opacity-80 focus:ring-2 focus:ring-chess-secondary focus:ring-opacity-50;
+    @apply transition-all duration-200 ease-in-out;
+  }
+
+  .btn-accent {
+    @apply bg-chess-accent text-white px-4 py-2 rounded font-medium;
+    @apply hover:bg-opacity-90 focus:ring-2 focus:ring-chess-accent focus:ring-opacity-50;
+    @apply transition-all duration-200 ease-in-out;
+  }
+
+  /* Card components */
+  .card {
+    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
+  }
+
+  .card-header {
+    @apply flex justify-between items-center mb-4 pb-4 border-b border-gray-100;
+  }
+
+  .card-title {
+    @apply text-lg font-semibold text-gray-800;
+  }
+
+  /* Status indicators */
+  .status-active {
+    @apply text-green-600 bg-green-50 px-2 py-1 rounded-full text-xs font-medium;
+  }
+
+  .status-warning {
+    @apply text-yellow-600 bg-yellow-50 px-2 py-1 rounded-full text-xs font-medium;
+  }
+
+  .status-error {
+    @apply text-red-600 bg-red-50 px-2 py-1 rounded-full text-xs font-medium;
+  }
+
+  .status-info {
+    @apply text-blue-600 bg-blue-50 px-2 py-1 rounded-full text-xs font-medium;
+  }
+
+  /* Loading animations */
+  .loading-spinner {
+    @apply animate-spin rounded-full border-2 border-gray-200 border-t-chess-primary;
+  }
+
+  /* Code display */
+  .code-display {
+    @apply font-mono text-xs bg-gray-100 px-2 py-1 rounded border;
+  }
+}
+
+/* Utility classes */
+@layer utilities {
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  /* Performance optimizations */
+  .will-change-transform {
+    will-change: transform;
+  }
+
+  .will-change-opacity {
+    will-change: opacity;
+  }
+
+  /* Text utilities */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Custom scrollbars */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.gray.400') theme('colors.gray.100');
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: theme('colors.gray.100');
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: theme('colors.gray.400');
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.gray.500');
+  }
+}
+
+/* Keyframe animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Performance optimizations for smooth 60fps */
+.chessboard-container,
+.chessboard-container * {
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Ensure crisp text rendering */
+.text-crisp {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .chessboard-container square.light {
+    background-color: #ffffff !important;
+  }
+  
+  .chessboard-container square.dark {
+    background-color: #000000 !important;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .chessboard-container piece {
+    transition: none !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  .chessboard-container {
+    -webkit-print-color-adjust: exact;
+    color-adjust: exact;
+  }
+}

@@ -1,0 +1,115 @@
+# ========================================
+# CHESS TRAINER - ENTERPRISE .GITIGNORE
+# ========================================
+
+# Node.js & Build Artifacts
+node_modules/
+dist/
+dist-ssr/
+build/
+.out/
+.next/
+.vercel/
+.turbo/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment & Secrets
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.local
+
+# Runtime & Caches
+.cache/
+.temp/
+.tmp/
+.nuxt/
+.output/
+.vite/
+.eslintcache
+
+# Editor & IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Operating System
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Testing Artifacts
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+.playwright/
+
+# PWA & Service Workers
+workbox-*.js
+sw.js.map
+service-worker.js.map
+
+# ========================================
+# CHESS TRAINER SPECIFIC
+# ========================================
+
+# Video Files (Heavy - Use OPFS locally)
+public/lessons/*.mp4
+public/videos/*.mp4
+videos/
+*.mp4
+*.avi
+*.mov
+*.wmv
+
+# Chess Training Data (Keep local)
+training-data/
+pgn-database/
+user-progress.json
+
+# Large Database Files
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup Files
+backup-*.json
+emergency-backup-*.json
+
+# Debug & Development
+debug.log
+error.log
+
+# Performance & Profiling
+.clinic/
+isolate-*
+profile-*
+
+# Deployment artifacts
+*.tgz
+*.tar.gz
