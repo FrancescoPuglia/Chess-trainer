@@ -115,6 +115,37 @@ export class ChessJSGameAPI implements IGameAPI {
     return this.chess.isDraw();
   }
 
+  // Missing interface methods
+  loadFEN(fen: string): boolean {
+    return this.load(fen);
+  }
+
+  put(piece: ChessPiece, square: Square): boolean {
+    try {
+      const result = this.chess.put(piece, square);
+      return Boolean(result);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  remove(square: Square): ChessPiece | null {
+    try {
+      const piece = this.chess.remove(square);
+      return piece ? { type: piece.type as PieceSymbol, color: piece.color as Color } : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  getComment(): string {
+    return this.chess.getComment() || '';
+  }
+
+  setComment(comment: string): void {
+    this.chess.setComment(comment);
+  }
+
   // Move handling methods
   move(moveInput: string | { from: Square; to: Square; promotion?: PieceSymbol }): ChessMove | null {
     try {
@@ -177,7 +208,7 @@ export class ChessJSGameAPI implements IGameAPI {
   load(fen: string): boolean {
     try {
       const result = this.chess.load(fen);
-      return result === true;
+      return Boolean(result);
     } catch (error) {
       console.warn('Failed to load FEN:', fen, error);
       return false;
@@ -187,7 +218,7 @@ export class ChessJSGameAPI implements IGameAPI {
   loadPgn(pgn: string): boolean {
     try {
       const result = this.chess.loadPgn(pgn);
-      return result === true;
+      return Boolean(result);
     } catch (error) {
       console.warn('Failed to load PGN:', error);
       return false;
@@ -229,7 +260,7 @@ export class ChessJSGameAPI implements IGameAPI {
     try {
       const tempChess = new Chess();
       const isValid = tempChess.load(fen);
-      return { valid: isValid === true };
+      return { valid: Boolean(isValid) };
     } catch (error) {
       return { 
         valid: false, 
@@ -254,7 +285,7 @@ export class ChessJSGameAPI implements IGameAPI {
       }));
     }
     
-    return history as string[];
+    return (history as any[]).map(move => typeof move === 'string' ? move : move.san);
   }
 
   moveNumber(): number {

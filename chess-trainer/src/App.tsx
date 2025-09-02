@@ -6,7 +6,7 @@
  * defined in the project plan.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 import Chessboard, { type ChessboardHandle } from './components/Chessboard';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -20,7 +20,7 @@ import './index.css';
 
 function App() {
   // Core state
-  const [gameAPI, setGameAPI] = useState<IGameAPI>(() => createGameAPI());
+  const [gameAPI] = useState<IGameAPI>(() => createGameAPI());
   const [position, setPosition] = useState<GamePosition>(() => gameAPI.getPosition());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -232,7 +232,7 @@ function App() {
                 <Chessboard
                   ref={chessboardRef}
                   gameAPI={gameAPI}
-                  orientation="white"
+                  orientation={'white' as const}
                   interactive={true}
                   showCoordinates={true}
                   showLastMove={true}

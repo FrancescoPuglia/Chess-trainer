@@ -15,7 +15,8 @@
  * - Type-safe with full TypeScript support
  */
 
-import Dexie, { Table } from 'dexie';
+import Dexie from 'dexie';
+import type { Table } from 'dexie';
 
 import type { DatabaseSchema } from '../types';
 

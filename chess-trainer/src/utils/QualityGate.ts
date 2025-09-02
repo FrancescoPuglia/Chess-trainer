@@ -14,6 +14,11 @@ export interface PerformanceBudget {
   stockfishResponseMs: number; // Engine response time
   syncDriftMs: number;     // Video sync drift tolerance
   srsRatePerMinute: number; // SRS review throughput
+  // Day 2 Custom Metrics
+  videoLoadTimeMs: number;
+  seekTimeMs: number;
+  fileUploadMs: number;
+  gameValidationMs: number;
 }
 
 export interface QualityMetrics {
@@ -132,7 +137,7 @@ export class QualityGate {
 
       // Check if exceeds budget
       if (value > budgetValue) {
-        this.recordIssue('warning', `${metric} exceeded budget: ${value}ms > ${budgetValue}ms`);
+        this.internalRecordIssue('warning', `${metric} exceeded budget: ${value}ms > ${budgetValue}ms`);
       }
 
       this.updateHealthScore();
@@ -158,7 +163,7 @@ export class QualityGate {
       stack: error.stack,
     };
 
-    this.recordIssue(severity, `${severity} error: ${error.message}`);
+    this.internalRecordIssue(severity, `${severity} error: ${error.message}`);
     this.updateHealthScore();
     this.notifyListeners();
   }
@@ -347,7 +352,26 @@ export class QualityGate {
     return mapping[budgetKey] || null;
   }
 
-  private recordIssue(severity: 'warning' | 'critical', message: string): void {
+  /**
+   * Public method to record issues from external components
+   */
+  recordIssue(severity: 'warning' | 'critical' | 'info', message: string): void {
+    if (!this.metrics.health.issues.includes(message)) {
+      this.metrics.health.issues.push(message);
+    }
+
+    // Update error counts
+    if (severity === 'critical') {
+      this.metrics.errors.critical++;
+    } else {
+      this.metrics.errors.warnings++;
+    }
+    this.metrics.errors.total++;
+
+    this.updateHealthScore();
+  }
+
+  private internalRecordIssue(severity: 'warning' | 'critical', message: string): void {
     if (!this.metrics.health.issues.includes(message)) {
       this.metrics.health.issues.push(message);
     }

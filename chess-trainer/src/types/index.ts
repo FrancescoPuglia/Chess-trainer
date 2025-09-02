@@ -39,8 +39,8 @@ export interface GamePosition {
   isGameOver: boolean;
 }
 
-// PGN and Study Types
-export interface PGNGame {
+// Legacy PGN Types (will be replaced by enhanced versions)
+export interface LegacyPGNGame {
   id: string;
   headers: Record<string, string>;
   moves: PGNMove[];
@@ -361,4 +361,390 @@ export interface FeatureFlags {
   fsrsAdvanced: boolean;
   videoSync: boolean;
   analytics: boolean;
+}
+
+// ========================================
+// DAY 2 ENTERPRISE TYPES - PGN + VIDEO + SYNC
+// ========================================
+
+// PGN Parser Types (Enhanced)
+export interface PGNHeader {
+  Event: string;
+  Site: string;
+  Date: string;
+  Round: string;
+  White: string;
+  Black: string;
+  Result: string;
+  [key: string]: string; // Additional headers
+}
+
+export interface PGNComment {
+  moveIndex: number;
+  text: string;
+  timestamp?: number; // For video sync
+}
+
+export interface PGNVariation {
+  startMoveIndex: number;
+  moves: string[];
+  comment?: string;
+}
+
+export interface TrainingData {
+  puzzlePositions: Array<{
+    fen: string;
+    solution: string;
+    comment?: string;
+  }>;
+  keyMoments: Array<{
+    moveIndex: number;
+    comment: string;
+    difficulty?: number;
+  }>;
+  mistakes: Array<{
+    moveIndex: number;
+    correctMove?: string;
+    explanation?: string;
+  }>;
+  totalMoves: number;
+  hasAnnotations: boolean;
+}
+
+export interface PGNGame {
+  id: string;
+  headers: PGNHeader;
+  moves: ChessMove[];
+  comments: PGNComment[];
+  variations: PGNVariation[];
+  result: string;
+  trainingData?: TrainingData;
+  metadata: {
+    gameNumber: number;
+    parsedAt: string;
+    moveCount: number;
+    commentCount: number;
+    variationCount: number;
+  };
+}
+
+export interface PGNParseError {
+  type: 'error' | 'warning' | 'critical';
+  message: string;
+  line: number;
+  column: number;
+}
+
+export interface PGNParseResult {
+  success: boolean;
+  games: PGNGame[];
+  errors: PGNParseError[];
+  metadata: {
+    totalGames: number;
+    parseTimeMs: number;
+    warnings: PGNParseError[];
+  };
+}
+
+// Video Player Configuration
+export interface VideoPlayerConfig {
+  seekThreshold: number;
+  playbackRates: number[];
+  keyboardShortcuts: boolean;
+  showFrameInfo: boolean;
+  maxBufferSize: number;
+  preloadStrategy: 'auto' | 'metadata' | 'none';
+}
+
+// Video Player Types (Enterprise)
+export interface VideoPlayerProps {
+  src: string;
+  syncPoints?: SyncPoint[];
+  currentSyncIndex?: number;
+  onTimeUpdate?: (currentTime: number) => void;
+  onSyncPointReached?: (syncPoint: SyncPoint) => void;
+  onError?: (error: Error) => void;
+  config?: Partial<VideoPlayerConfig>;
+  className?: string;
+}
+
+export interface VideoPlayerState {
+  isPlaying: boolean;
+  currentTime: number;
+  duration: number;
+  buffered: number;
+  playbackRate: number;
+  volume: number;
+  muted: boolean;
+  isLoading: boolean;
+  error: string | null;
+  isFullscreen: boolean;
+}
+
+export interface VideoMetadata {
+  duration: number;
+  width: number;
+  height: number;
+  fps: number;
+  codec: string;
+  fileSize: number;
+  bitrate: number;
+}
+
+export interface VideoPlayerEvent {
+  type: 'play' | 'pause' | 'seek' | 'error' | 'loaded';
+  timestamp: number;
+  data?: any;
+}
+
+// Sync Editor Configuration
+export interface SyncEditorConfig {
+  maxDriftMs: number;
+  snapThreshold: number;
+  showPreview: boolean;
+  enableAutoSuggest: boolean;
+  minSyncInterval: number;
+  maxUndoSteps: number;
+}
+
+// Sync Editor Types (Professional)
+export interface SyncEditorProps {
+  videoSrc: string;
+  moves: ChessMove[];
+  initialSyncPoints?: SyncPoint[];
+  onSyncPointsChange?: (syncPoints: SyncPoint[]) => void;
+  onSave?: (syncPoints: SyncPoint[]) => void;
+  onCancel?: () => void;
+  config?: Partial<SyncEditorConfig>;
+  className?: string;
+}
+
+export interface SyncEditorState {
+  syncPoints: SyncPoint[];
+  selectedPointIndex: number;
+  currentVideoTime: number;
+  isPlaying: boolean;
+  isPreviewMode: boolean;
+  validationResult: SyncValidationResult | null;
+  isDirty: boolean;
+}
+
+export interface SyncPoint {
+  timestamp: number;      // Video time in seconds
+  moveIndex: number;      // Move index in game
+  fen: string;           // Position FEN
+  moveNumber: number;     // Display move number
+  isWhiteMove: boolean;   // Is it white's move?
+}
+
+export interface SyncValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+  maxDrift: number;       // Maximum drift in milliseconds
+  syncPointCount: number;
+}
+
+export interface SyncImportResult {
+  success: boolean;
+  pointsImported: number;
+  error?: string;
+  warnings?: string[];
+}
+
+// File Upload Configuration
+export interface FileUploaderConfig {
+  maxFileSize: number;
+  supportedTypes: SupportedFileType[];
+  allowMultiple: boolean;
+  useOPFS: boolean;
+  validateContent: boolean;
+  showPreview: boolean;
+  autoUpload: boolean;
+}
+
+// File Upload Types (OPFS + Security)
+export type SupportedFileType = 'video' | 'pgn' | 'image';
+
+export interface FileUploaderProps {
+  onFileUploaded?: (uploadedFile: UploadedFile) => void;
+  onUploadProgress?: (progress: UploadProgressEvent) => void;
+  onError?: (error: Error) => void;
+  config?: Partial<FileUploaderConfig>;
+  acceptedTypes?: SupportedFileType[];
+  maxSize?: number;
+  className?: string;
+  disabled?: boolean;
+}
+
+export interface UploadedFile {
+  file: File;
+  result: FileUploadResult;
+  validation: FileValidationResult;
+}
+
+export interface FileUploadResult {
+  success: boolean;
+  url: string;
+  fileName: string;
+  size: number;
+  type: string;
+  storage: 'memory' | 'opfs';
+  content?: string;      // For text files
+  metadata: {
+    uploadedAt: string;
+    originalName: string;
+  };
+}
+
+export interface FileValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+  fileType: SupportedFileType | null;
+  sanitizedName: string;
+}
+
+export interface UploadProgressEvent {
+  taskId: string;
+  fileName: string;
+  progress: number;      // 0-100
+  bytesUploaded: number;
+  totalBytes: number;
+}
+
+// Training Lesson Types (Enhanced)
+export interface TrainingLesson {
+  id: string;
+  title: string;
+  description: string;
+  games: PGNGame[];
+  moves: ChessMove[];
+  analysis: GameAnalysis;
+  syncPoints: SyncPoint[];
+  hasVideo: boolean;
+  videoSrc: string | null;
+  createdAt: string;
+  updatedAt: string;
+  version: string;
+  source: string;
+  tags: string[];
+  difficulty: number;
+  estimatedDuration: number; // minutes
+}
+
+export interface GameAnalysis {
+  totalGames: number;
+  totalMoves: number;
+  avgMovesPerGame: number;
+  hasAnalysis: boolean;
+  difficulty: number;
+  keyPositions: number;
+  themes: string[];
+}
+
+export interface LessonMetadata {
+  id: string;
+  title: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+  version: string;
+  source: string;
+  tags: string[];
+  difficulty: number;
+  estimatedDuration: number;
+}
+
+// GameAPI Interface (Enhanced for PGN)
+export interface IGameAPI {
+  // Core chess logic
+  reset(): void;
+  loadFEN(fen: string): boolean;
+  fen(): string;
+  pgn(): string;
+  turn(): Color;
+  isCheck(): boolean;
+  isCheckmate(): boolean;
+  isStalemate(): boolean;
+  isGameOver(): boolean;
+  
+  // Move operations
+  move(moveInput: string | { from: Square; to: Square; promotion?: PieceSymbol }): ChessMove | null;
+  moves(options?: { square?: Square; verbose?: boolean }): string[] | ChessMove[];
+  undo(): ChessMove | null;
+  
+  // Position analysis
+  inCheck(): boolean;
+  inCheckmate(): boolean;
+  inStalemate(): boolean;
+  inDraw(): boolean;
+  insufficientMaterial(): boolean;
+  inThreefoldRepetition(): boolean;
+  
+  // Board representation
+  board(): (ChessPiece | null)[][];
+  get(square: Square): ChessPiece | null;
+  put(piece: ChessPiece, square: Square): boolean;
+  remove(square: Square): ChessPiece | null;
+  
+  // Game state
+  history(options?: { verbose: boolean }): string[] | ChessMove[];
+  getComment(): string;
+  setComment(comment: string): void;
+  
+  // Validation
+  validateFen(fen: string): { valid: boolean; error?: string };
+  squareColor(square: Square): 'light' | 'dark';
+}
+
+// FSRS Types (Enhanced)
+export interface FSRSCard {
+  due: Date;
+  stability: number;
+  difficulty: number;
+  elapsed_days: number;
+  scheduled_days: number;
+  reps: number;
+  lapses: number;
+  state: CardState;
+  last_review?: Date;
+}
+
+export type CardState = 'New' | 'Learning' | 'Review' | 'Relearning';
+export type Grade = 0 | 1 | 2 | 3 | 4; // Again, Hard, Good, Easy
+
+export interface FSRSParameters {
+  w: number[];              // 19 parameters for FSRS v4
+  request_retention: number; // Target retention rate
+  maximum_interval: number;  // Maximum interval in days
+  enable_fuzz: boolean;     // Add randomization to intervals
+}
+
+// Quality Gate Types (Enhanced)
+export interface PerformanceBudget {
+  ttiMs: number;           // Time to Interactive
+  memoryMb: number;        // Memory usage
+  bundleSizeKb: number;    // Bundle size
+  renderTimeMs: number;    // Render time
+  apiResponseMs: number;   // API response time
+  errorRate: number;       // Error percentage
+}
+
+export interface QualityMetrics {
+  healthScore: number;     // 0-100
+  performance: Record<keyof PerformanceBudget, number>;
+  errors: QualityIssue[];
+  warnings: QualityIssue[];
+  uptime: number;         // Percentage
+  lastUpdate: string;
+}
+
+export interface QualityIssue {
+  id: string;
+  type: 'error' | 'warning' | 'info';
+  message: string;
+  timestamp: string;
+  count: number;
+  resolved: boolean;
 }
