@@ -100,14 +100,9 @@ export interface VideoChapter {
   description?: string;
 }
 
-export interface VideoSyncPoint {
-  id: string;
-  timestamp: number; // seconds
-  fen: string;
-  moveNumber: number;
-  description?: string;
-  tolerance: number; // sync tolerance in seconds
-}
+// VideoSyncPoint is now an alias for SyncPoint to maintain compatibility
+// The unified SyncPoint interface includes all required fields
+export type VideoSyncPoint = SyncPoint;
 
 // SRS (Spaced Repetition System) Types
 export interface SRSCard {
@@ -119,6 +114,22 @@ export interface SRSCard {
   sourceVideoId?: string;
   sourceTimestamp?: number;
   sourceStudyId?: string;
+  
+  // FSRS-specific fields (for advanced scheduling)
+  stability?: number;     // Days until 90% retention probability
+  difficulty?: number;    // 1-10 scale, higher = more difficult
+  reps?: number;         // Number of successful reviews
+  lapses?: number;       // Number of failed reviews
+  
+  // Scheduling
+  dueDate?: Date;
+  lastReview?: Date;
+  interval?: number;     // Current interval in days
+  
+  // Flags
+  isLeech?: boolean;     // Marked as problematic card
+  isSuspended?: boolean; // Temporarily disabled
+  
   createdAt: Date;
   updatedAt: Date;
 }
@@ -234,6 +245,18 @@ export interface StudySession {
   accuracy?: number; // percentage
   tags: string[];
 }
+
+// Enhanced types for VideoStudySession component
+export interface StudyStats {
+  duration: number; // seconds
+  cardsCreated: number;
+  reviewsCompleted: number;
+  averageSyncDrift: number; // milliseconds
+  syncPerformanceScore: number; // 0-1, percentage of syncs within target
+  positionsStudied?: number;
+  accuracyByTag?: Record<string, number>;
+}
+
 
 export interface KPI {
   date: Date;
@@ -361,6 +384,44 @@ export interface FeatureFlags {
   fsrsAdvanced: boolean;
   videoSync: boolean;
   analytics: boolean;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ENTERPRISE STOCKFISH ENGINE INTEGRATION
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Enhanced engine system for enterprise chess applications
+ */
+export interface EngineSystemState {
+  isInitialized: boolean;
+  poolSize: number;
+  activeAnalyses: number;
+  queueLength: number;
+  averageResponseTime: number;
+  healthScore: number;
+  lastError: Error | null;
+}
+
+/**
+ * Engine analysis priority levels
+ */
+export type AnalysisPriority = 'low' | 'normal' | 'high' | 'critical';
+
+/**
+ * Engine worker health status
+ */
+export type EngineWorkerHealth = 'healthy' | 'degraded' | 'failed';
+
+/**
+ * Advanced engine configuration
+ */
+export interface AdvancedEngineOptions extends EngineOptions {
+  enableProgressiveDepth: boolean;
+  enableTablebase: boolean;
+  cacheSize: number;
+  qualityThreshold: number;
+  timeManagement: 'fixed' | 'adaptive' | 'tournament';
 }
 
 // ========================================
@@ -530,11 +591,95 @@ export interface SyncEditorState {
 }
 
 export interface SyncPoint {
+  id: string;            // Unique identifier
   timestamp: number;      // Video time in seconds
   moveIndex: number;      // Move index in game
   fen: string;           // Position FEN
   moveNumber: number;     // Display move number
   isWhiteMove: boolean;   // Is it white's move?
+  description?: string;   // Optional description
+  tolerance: number;      // Sync tolerance in seconds
+}
+
+// SyncPoint Factory Functions and Utilities
+export interface CreateSyncPointOptions {
+  timestamp: number;
+  moveIndex: number;
+  fen: string;
+  moveNumber: number;
+  isWhiteMove: boolean;
+  description?: string;
+  tolerance?: number;
+  id?: string;
+}
+
+/**
+ * ENTERPRISE FACTORY: Create a fully compliant SyncPoint
+ * 
+ * Ensures type safety and provides intelligent defaults for all required fields.
+ * Used throughout the application to maintain SyncPoint consistency.
+ * 
+ * @param options - SyncPoint creation options
+ * @returns Fully compliant SyncPoint with all required fields
+ */
+export function createSyncPoint(options: CreateSyncPointOptions): SyncPoint {
+  return {
+    id: options.id || `sync-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+    timestamp: options.timestamp,
+    moveIndex: options.moveIndex,
+    fen: options.fen,
+    moveNumber: options.moveNumber,
+    isWhiteMove: options.isWhiteMove,
+    description: options.description,
+    tolerance: options.tolerance || 0.5, // Default 500ms tolerance
+  };
+}
+
+/**
+ * ENTERPRISE UTILITY: Create SyncPoint from minimal data
+ * 
+ * For backward compatibility with existing code patterns.
+ * Automatically infers missing fields where possible.
+ */
+export function createSyncPointFromBasics(
+  timestamp: number,
+  fen: string,
+  moveIndex: number = -1,
+  tolerance: number = 0.5
+): SyncPoint {
+  // Extract move number from FEN (6th field)
+  const fenParts = fen.split(' ');
+  const moveNumber = fenParts.length >= 6 ? parseInt(fenParts[5]) || 1 : 1;
+  
+  // Determine if white's move from FEN (2nd field)
+  const isWhiteMove = fenParts.length >= 2 ? fenParts[1] === 'w' : true;
+
+  return createSyncPoint({
+    timestamp,
+    moveIndex,
+    fen,
+    moveNumber,
+    isWhiteMove,
+    tolerance,
+    description: `Auto-generated sync point at ${timestamp}s`,
+  });
+}
+
+/**
+ * ENTERPRISE TYPE GUARD: Validate SyncPoint completeness
+ */
+export function isValidSyncPoint(obj: any): obj is SyncPoint {
+  return (
+    obj &&
+    typeof obj.id === 'string' &&
+    typeof obj.timestamp === 'number' &&
+    typeof obj.moveIndex === 'number' &&
+    typeof obj.fen === 'string' &&
+    typeof obj.moveNumber === 'number' &&
+    typeof obj.isWhiteMove === 'boolean' &&
+    typeof obj.tolerance === 'number' &&
+    obj.tolerance > 0
+  );
 }
 
 export interface SyncValidationResult {
@@ -729,6 +874,36 @@ export interface PerformanceBudget {
   renderTimeMs: number;    // Render time
   apiResponseMs: number;   // API response time
   errorRate: number;       // Error percentage
+  
+  // Engine-specific metrics
+  stockfishInitMs: number; // Stockfish initialization time
+  stockfishResponseMs: number; // Engine response time
+  
+  // Video-specific metrics
+  videoLoadTimeMs: number; // Video loading time
+  seekTimeMs: number;      // Video seek operation time
+  
+  // File operation metrics
+  fileUploadMs: number;    // File upload time
+  
+  // Game validation metrics
+  gameValidationMs: number; // Game/move validation time
+  
+  // Sync metrics
+  syncDriftMs: number;     // Video sync drift tolerance
+  
+  // SRS metrics
+  srsRatePerMinute: number; // SRS review rate
+  
+  // Analytics metrics
+  moveAnalysisMs: number;   // Move analysis time
+  positionAnalysisMs: number; // Position analysis time
+  
+  // Engine pool metrics
+  enginePoolInitMs: number; // Engine pool initialization time
+  
+  // System metrics
+  engineSystemInitMs: number; // Engine system initialization time
 }
 
 export interface QualityMetrics {
@@ -747,4 +922,247 @@ export interface QualityIssue {
   timestamp: string;
   count: number;
   resolved: boolean;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ENTERPRISE MOVE HISTORY & ANALYTICS SYSTEM
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Enhanced Move History System with enterprise-grade analytics
+ * Supports real-time analytics, performance tracking, and historical analysis
+ */
+export interface MoveHistoryEntry {
+  id: string;
+  move: ChessMove;
+  timestamp: Date;
+  position: {
+    fen: string;
+    pgn: string;
+    moveNumber: number;
+    halfMoveNumber: number;
+  };
+  timing: {
+    thinkTimeMs: number;        // Time spent thinking about this move
+    cumulativeTimeMs: number;   // Total time since game start
+  };
+  analysis?: {
+    classification: MoveClassification;
+    complexity: MoveComplexity;
+    themes: string[];           // tactical themes, strategic concepts
+    evaluation?: number;        // engine evaluation (if available)
+    isBlunder?: boolean;
+    isBrilliant?: boolean;
+  };
+  metadata: {
+    source: 'user' | 'demo' | 'imported' | 'study';
+    context?: string;           // e.g., 'video-study', 'board-demo'
+    sessionId?: string;
+  };
+}
+
+export type MoveClassification = 
+  | 'opening' 
+  | 'middlegame' 
+  | 'endgame' 
+  | 'tactical' 
+  | 'positional' 
+  | 'forcing' 
+  | 'quiet';
+
+export type MoveComplexity = 
+  | 'simple'      // Basic moves (1-2 candidate moves)
+  | 'moderate'    // Standard moves (3-5 candidates)
+  | 'complex'     // Advanced moves (5+ candidates, calculation required)
+  | 'critical';   // Game-defining moves (must be calculated precisely)
+
+/**
+ * Real-time game analytics with comprehensive KPI tracking
+ */
+export interface GameAnalytics {
+  // Session Information
+  sessionId: string;
+  startTime: Date;
+  endTime?: Date;
+  duration: number;           // milliseconds
+  
+  // Move Statistics
+  totalMoves: number;
+  movesPerPhase: {
+    opening: number;
+    middlegame: number;
+    endgame: number;
+  };
+  
+  // Timing Analytics
+  timing: {
+    averageThinkTimeMs: number;
+    medianThinkTimeMs: number;
+    longestThinkTimeMs: number;
+    thinkTimeStandardDeviation: number;
+    timeDistribution: {
+      fast: number;         // < 5 seconds
+      normal: number;       // 5-15 seconds
+      slow: number;         // 15-60 seconds
+      deep: number;         // > 60 seconds
+    };
+  };
+  
+  // Pattern Recognition
+  patterns: {
+    tacticalMotifs: Record<string, number>;    // "pin": 3, "fork": 1, etc.
+    strategicThemes: Record<string, number>;   // "central control": 5, etc.
+    openings: Record<string, number>;          // Opening repertoire tracking
+    endgames: Record<string, number>;          // Endgame patterns
+  };
+  
+  // Performance Metrics
+  performance: {
+    complexityScore: number;        // Average complexity of positions faced
+    accuracyScore?: number;         // If engine analysis available (0-100)
+    consistencyScore: number;       // Time management consistency (0-100)
+    improvementTrend: number;       // Recent improvement trend (-1 to 1)
+  };
+  
+  // Quality Gate Integration
+  qualityMetrics: {
+    uiResponseTimeMs: number;
+    syncAccuracyMs: number;         // For video study mode
+    errorCount: number;
+    warningCount: number;
+  };
+}
+
+/**
+ * Advanced analytics for study sessions and training
+ */
+export interface StudyAnalytics extends GameAnalytics {
+  // Study-Specific Metrics
+  studyMode: 'board-demo' | 'video-study' | 'analysis';
+  
+  // Video Study Integration (when applicable)
+  videoSync?: {
+    driftEvents: number;
+    averageDriftMs: number;
+    maxDriftMs: number;
+    syncQualityScore: number;       // 0-100
+  };
+  
+  // Learning Analytics
+  learning: {
+    conceptsEncountered: string[];
+    repetitionCount: Record<string, number>;  // How many times each concept was seen
+    masteryLevel: Record<string, number>;     // 0-1 mastery score per concept
+    learningVelocity: number;                 // Rate of concept acquisition
+  };
+  
+  // Comparative Analytics
+  comparative: {
+    previousSessions: StudyAnalytics[];
+    improvementAreas: string[];
+    strengthAreas: string[];
+    recommendations: StudyRecommendation[];
+  };
+}
+
+export interface StudyRecommendation {
+  id: string;
+  type: 'tactical' | 'positional' | 'opening' | 'endgame' | 'time-management';
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  title: string;
+  description: string;
+  actionItems: string[];
+  expectedImpact: number;         // 0-100 score
+  estimatedTimeMinutes: number;
+}
+
+/**
+ * Analytics Event System for real-time tracking
+ */
+export interface AnalyticsEvent {
+  id: string;
+  type: AnalyticsEventType;
+  timestamp: Date;
+  sessionId: string;
+  data: Record<string, any>;
+  metadata: {
+    component: string;
+    function: string;
+    userId?: string;
+  };
+}
+
+export type AnalyticsEventType = 
+  | 'move_made'
+  | 'position_analysis'
+  | 'time_spent'
+  | 'pattern_recognized'
+  | 'error_occurred'
+  | 'improvement_detected'
+  | 'session_milestone'
+  | 'sync_quality_change'
+  | 'user_action'
+  | 'performance_metric';
+
+/**
+ * Advanced piece information with tactical and positional analysis
+ */
+export interface PieceAnalysis {
+  square: Square;
+  piece: ChessPiece;
+  
+  // Basic Information
+  canMove: boolean;
+  legalMoves: Square[];
+  attackedSquares: Square[];
+  defendedSquares: Square[];
+  
+  // Tactical Analysis
+  tactical: {
+    isHanging: boolean;           // Undefended and attackable
+    isDefended: boolean;
+    isAttacking: boolean;
+    isPinned: boolean;
+    isSkewered: boolean;
+    forkTargets: Square[];        // Squares this piece could fork
+    discoveredAttackPotential: boolean;
+  };
+  
+  // Positional Analysis
+  positional: {
+    mobility: number;             // Number of legal moves (0-27 for queen)
+    centralization: number;       // 0-1 score for central placement
+    activity: number;             // 0-1 overall activity score
+    coordination: number;         // 0-1 coordination with other pieces
+    safety: number;               // 0-1 safety score
+  };
+  
+  // Advanced Concepts
+  strategic: {
+    controlsKey: boolean;         // Controls key squares (center, outposts)
+    blocksPawn: boolean;          // Blocks enemy pawn advancement
+    supportsPassedPawn: boolean;
+    occupiesOutpost: boolean;
+    weaknessCreated: Square[];    // Weaknesses this piece creates
+    strengths: string[];          // Strategic strengths
+  };
+}
+
+/**
+ * Comprehensive sync integration for video study mode
+ */
+export interface VideoSyncIntegration {
+  isActive: boolean;
+  currentVideoTime: number;
+  syncQuality: {
+    driftMs: number;
+    qualityScore: number;         // 0-100
+    lastSyncTime: Date;
+  };
+  analytics: {
+    syncEvents: number;
+    averageDriftMs: number;
+    worstDriftMs: number;
+    perfectSyncs: number;         // Syncs with <100ms drift
+  };
 }

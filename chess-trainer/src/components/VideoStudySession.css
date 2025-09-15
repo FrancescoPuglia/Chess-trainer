@@ -1,0 +1,667 @@
+/**
+ * ♔ ENTERPRISE VIDEO STUDY SESSION STYLES
+ * 
+ * High-performance CSS with professional design and accessibility.
+ * 
+ * Features:
+ * - Responsive grid layout with flexible components
+ * - 60fps animations and smooth transitions  
+ * - Dark/Light mode support with CSS custom properties
+ * - Accessibility-first approach (WCAG 2.1 AA)
+ * - Performance optimizations (will-change, transforms)
+ * - Enterprise color palette and typography
+ */
+
+/* CSS Custom Properties - Enterprise Design System */
+:root {
+  /* Primary Colors */
+  --chess-primary: #2563eb;
+  --chess-primary-hover: #1d4ed8;
+  --chess-primary-light: #dbeafe;
+  --chess-dark: #1f2937;
+  --chess-secondary: #f3f4f6;
+  --chess-accent: #059669;
+
+  /* Semantic Colors */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+
+  /* Grayscale Palette */
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+
+  /* Typography */
+  --font-primary: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+
+  /* Spacing Scale */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+
+  /* Border Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+
+  /* Transitions - Optimized for 60fps */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===================================== */
+/* MAIN COMPONENT CONTAINER */
+/* ===================================== */
+
+.video-study-session {
+  font-family: var(--font-primary);
+  color: var(--gray-800);
+  background-color: var(--gray-50);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  
+  /* Performance optimizations */
+  will-change: transform;
+  contain: layout style paint;
+}
+
+/* ===================================== */
+/* LAYOUT SYSTEM */
+/* ===================================== */
+
+.study-session-layout {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: var(--space-xl);
+  padding: var(--space-xl);
+  min-height: 500px;
+  
+  /* Responsive behavior */
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+    padding: var(--space-lg);
+  }
+}
+
+/* ===================================== */
+/* VIDEO PANEL */
+/* ===================================== */
+
+.video-panel {
+  position: relative;
+  background: #000;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  
+  /* Performance optimization for video rendering */
+  will-change: transform;
+  contain: strict;
+}
+
+.video-controls-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(
+    transparent,
+    rgba(0, 0, 0, 0.7)
+  );
+  padding: var(--space-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  
+  /* Smooth overlay transitions */
+  transform: translateY(100%);
+  transition: transform var(--transition-fast);
+  will-change: transform;
+}
+
+.video-panel:hover .video-controls-overlay {
+  transform: translateY(0);
+}
+
+.btn-create-card {
+  background: var(--chess-primary);
+  color: white;
+  border: none;
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  
+  /* Performance optimization */
+  will-change: transform, background-color;
+}
+
+.btn-create-card:hover:not(:disabled) {
+  background: var(--chess-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-create-card:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.sync-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background: rgba(0, 0, 0, 0.5);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(8px);
+}
+
+.sync-drift {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: white;
+  font-weight: 500;
+}
+
+.sync-status.good {
+  filter: drop-shadow(0 0 4px #10b981);
+}
+
+.sync-status.warning {
+  filter: drop-shadow(0 0 4px #f59e0b);
+}
+
+/* ===================================== */
+/* STUDY PANEL */
+/* ===================================== */
+
+.study-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.board-container {
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--gray-200);
+}
+
+.board-container h3 {
+  margin: 0 0 var(--space-md) 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--gray-800);
+}
+
+/* ===================================== */
+/* CHESSGROUND INTEGRATION */
+/* ===================================== */
+
+.chessground-container {
+  position: relative;
+}
+
+.chessground-loading,
+.chessground-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gray-100);
+  border: 2px dashed var(--gray-300);
+  border-radius: var(--radius-md);
+  min-height: 300px;
+  color: var(--gray-600);
+}
+
+.loading-content,
+.error-content {
+  text-align: center;
+  padding: var(--space-lg);
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--gray-200);
+  border-top-color: var(--chess-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto var(--space-md) auto;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.error-icon {
+  font-size: 2rem;
+  margin-bottom: var(--space-sm);
+}
+
+.retry-button {
+  background: var(--chess-primary);
+  color: white;
+  border: none;
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  margin-top: var(--space-md);
+  transition: background-color var(--transition-fast);
+}
+
+.retry-button:hover {
+  background: var(--chess-primary-hover);
+}
+
+.debug-info {
+  position: absolute;
+  top: var(--space-xs);
+  right: var(--space-xs);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  pointer-events: none;
+}
+
+/* ===================================== */
+/* POSITION INFO */
+/* ===================================== */
+
+.position-info {
+  margin-top: var(--space-md);
+  padding: var(--space-md);
+  background: var(--gray-50);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--gray-200);
+}
+
+.position-info p {
+  margin: 0 0 var(--space-sm) 0;
+  font-size: 0.875rem;
+}
+
+.position-info code {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  background: white;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--gray-200);
+  word-break: break-all;
+}
+
+/* ===================================== */
+/* SESSION STATS */
+/* ===================================== */
+
+.session-stats {
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--gray-200);
+}
+
+.session-stats h4 {
+  margin: 0 0 var(--space-md) 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--gray-800);
+}
+
+.stats-grid {
+  display: grid;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.stat-item:last-child {
+  border-bottom: none;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: var(--gray-600);
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--gray-800);
+  font-family: var(--font-mono);
+}
+
+.btn-complete-session {
+  width: 100%;
+  background: var(--chess-accent);
+  color: white;
+  border: none;
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  will-change: transform, background-color;
+}
+
+.btn-complete-session:hover {
+  background: #047857;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* ===================================== */
+/* CARD CREATION MODAL */
+/* ===================================== */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  
+  /* Smooth modal animations */
+  animation: fadeIn 200ms ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.card-creation-modal {
+  background: white;
+  border-radius: var(--radius-xl);
+  padding: var(--space-2xl);
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  
+  /* Modal entrance animation */
+  animation: slideUp 300ms ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.card-creation-modal h3 {
+  margin: 0 0 var(--space-lg) 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--gray-800);
+  text-align: center;
+}
+
+.form-group {
+  margin-bottom: var(--space-lg);
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: var(--space-sm);
+  font-weight: 500;
+  color: var(--gray-700);
+}
+
+.form-group select,
+.form-group input[type="text"] {
+  width: 100%;
+  padding: var(--space-md);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  transition: border-color var(--transition-fast);
+}
+
+.form-group select:focus,
+.form-group input[type="text"]:focus {
+  outline: none;
+  border-color: var(--chess-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.form-group input[type="range"] {
+  width: 100%;
+  margin: var(--space-sm) 0;
+}
+
+.form-actions {
+  display: flex;
+  gap: var(--space-md);
+  justify-content: flex-end;
+  margin-top: var(--space-xl);
+}
+
+.form-actions button {
+  padding: var(--space-md) var(--space-xl);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  will-change: transform, background-color;
+}
+
+.form-actions button[type="button"] {
+  background: var(--gray-200);
+  color: var(--gray-700);
+  border: 1px solid var(--gray-300);
+}
+
+.form-actions button[type="button"]:hover {
+  background: var(--gray-300);
+  transform: translateY(-1px);
+}
+
+.form-actions button[type="submit"] {
+  background: var(--chess-primary);
+  color: white;
+  border: 1px solid var(--chess-primary);
+}
+
+.form-actions button[type="submit"]:hover {
+  background: var(--chess-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* ===================================== */
+/* RESPONSIVE DESIGN */
+/* ===================================== */
+
+@media (max-width: 768px) {
+  .video-study-session {
+    border-radius: 0;
+    height: 100vh;
+  }
+  
+  .study-session-layout {
+    padding: var(--space-md);
+    gap: var(--space-md);
+  }
+  
+  .video-controls-overlay {
+    position: relative;
+    transform: none;
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+  }
+  
+  .card-creation-modal {
+    width: 95%;
+    padding: var(--space-lg);
+    margin: var(--space-md);
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .form-actions button {
+    width: 100%;
+  }
+}
+
+/* ===================================== */
+/* ACCESSIBILITY */
+/* ===================================== */
+
+/* Focus indicators */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--chess-primary);
+  outline-offset: 2px;
+}
+
+/* Reduce motion for users with motion sensitivity */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .loading-spinner {
+    animation: none;
+    border-top-color: transparent;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --gray-300: #000;
+    --gray-600: #fff;
+    --chess-primary: #0000ff;
+    --chess-accent: #008000;
+  }
+  
+  .btn-create-card,
+  .btn-complete-session {
+    border: 2px solid currentColor;
+  }
+}
+
+/* ===================================== */
+/* PERFORMANCE OPTIMIZATIONS */
+/* ===================================== */
+
+/* GPU acceleration for animations */
+.video-controls-overlay,
+.btn-create-card,
+.btn-complete-session,
+.modal-overlay,
+.card-creation-modal {
+  transform: translateZ(0);
+}
+
+/* Prevent layout thrashing */
+.stats-grid {
+  contain: layout;
+}
+
+.position-info {
+  contain: layout style;
+}
+
+/* Optimize repaints */
+.sync-status {
+  contain: paint;
+}
+
+/* ===================================== */
+/* DARK MODE SUPPORT (Future Enhancement) */
+/* ===================================== */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --gray-50: #111827;
+    --gray-100: #1f2937;
+    --gray-200: #374151;
+    --gray-300: #4b5563;
+    --gray-800: #f9fafb;
+    --gray-900: #ffffff;
+  }
+  
+  .video-study-session {
+    background-color: var(--gray-100);
+    color: var(--gray-800);
+  }
+  
+  .board-container,
+  .session-stats {
+    background: var(--gray-200);
+    border-color: var(--gray-300);
+  }
+  
+  .card-creation-modal {
+    background: var(--gray-200);
+    color: var(--gray-800);
+  }
+}

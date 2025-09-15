@@ -22,6 +22,7 @@ import type {
   SupportedFileType
 } from '../types/index.js';
 import { QualityGate } from '../utils/QualityGate.js';
+import logger from '../utils/Logger';
 
 export interface FileUploaderConfig {
   maxFileSize: number;          // Default: 500MB
@@ -117,7 +118,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
           setIsOPFSSupported(true);
         }
       } catch (error) {
-        console.warn('OPFS not supported:', error);
+        logger.warn('video', 'OPFS not supported in this browser', { error: error.message }, { component: 'FileUploader', function: 'initOPFS' });
         setIsOPFSSupported(false);
       }
     };

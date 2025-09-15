@@ -17,14 +17,14 @@ import type {
   ChessMove, 
   TrainingLesson,
   GameAnalysis,
-  PGNParseResult,
   LessonMetadata,
   IGameAPI,
   SyncPoint
-} from '../../types/index.js';
-import { PGNParser } from './PGNParser.js';
-import { ChessJSGameAPI } from '../../core/game-api.js';
-import { QualityGate } from '../../utils/QualityGate.js';
+} from '../../types/index';
+import { createSyncPoint } from '../../types/index';
+import { PGNParser } from './PGNParser';
+import { ChessJSGameAPI } from '../../core/game-api';
+import { qualityGate, QualityGate } from '../../utils/QualityGate';
 
 export interface PGNIntegrationConfig {
   validateMoves: boolean;           // Validate each move with GameAPI
@@ -66,7 +66,7 @@ export interface LessonCreationResult {
 export class PGNGameAPIIntegration {
   private parser: PGNParser;
   private gameAPI: IGameAPI;
-  private qualityGate: QualityGate;
+  // Using singleton qualityGate instance
   private config: PGNIntegrationConfig;
 
   private static readonly DEFAULT_CONFIG: PGNIntegrationConfig = {
@@ -88,7 +88,7 @@ export class PGNGameAPIIntegration {
       preserveComments: this.config.extractAnalysis,
       parseVariations: this.config.preserveVariations,
     });
-    this.qualityGate = new QualityGate();
+    // Using singleton qualityGate - no instantiation needed
   }
 
   /**
@@ -219,9 +219,9 @@ export class PGNGameAPIIntegration {
     const isValid = errors.length === 0;
     
     if (isValid) {
-      this.qualityGate.recordPerformance('gameValidationMs', Date.now());
+      qualityGate.recordPerformance('gameValidationMs', Date.now());
     } else {
-      this.qualityGate.recordIssue('warning', `Game validation failed: ${errors.length} errors`);
+      qualityGate.recordIssue('warning', `Game validation failed: ${errors.length} errors`);
     }
 
     return {
@@ -249,7 +249,7 @@ export class PGNGameAPIIntegration {
     for (const variation of variations) {
       const result = this.gameAPI.move(variation);
       if (result) {
-        this.qualityGate.recordIssue('info', `Recovered move ${moveIndex}: ${move.san} → ${variation}`);
+        qualityGate.recordIssue('info', `Recovered move ${moveIndex}: ${move.san} → ${variation}`);
         return result;
       }
     }
@@ -396,7 +396,7 @@ export class PGNGameAPIIntegration {
       return lesson;
 
     } catch (error) {
-      this.qualityGate.recordError(error as Error, 'warning');
+      qualityGate.recordError(error as Error, 'warning');
       return null;
     }
   }
@@ -415,25 +415,29 @@ export class PGNGameAPIIntegration {
     for (const gameData of games) {
       // Add sync point at game start
       if (gameData.moves.length > 0) {
-        syncPoints.push({
+        syncPoints.push(createSyncPoint({
           timestamp: currentTime,
           moveIndex,
           fen: gameData.moves[0].fen,
           moveNumber: 1,
           isWhiteMove: true,
-        });
+          description: `Game ${games.indexOf(gameData) + 1} start`,
+          tolerance: 0.5,
+        }));
       }
 
       // Add sync points for key moments
       for (const keyMoment of gameData.game.trainingData?.keyMoments || []) {
         const timeOffset = keyMoment.moveIndex * avgTimePerMove;
-        syncPoints.push({
+        syncPoints.push(createSyncPoint({
           timestamp: currentTime + timeOffset,
           moveIndex: moveIndex + keyMoment.moveIndex,
           fen: gameData.moves[keyMoment.moveIndex]?.fen || gameData.moves[0].fen,
           moveNumber: Math.floor(keyMoment.moveIndex / 2) + 1,
           isWhiteMove: keyMoment.moveIndex % 2 === 0,
-        });
+          description: keyMoment.comment || `Key moment at move ${keyMoment.moveIndex + 1}`,
+          tolerance: 0.5,
+        }));
       }
 
       currentTime += gameData.moves.length * avgTimePerMove;

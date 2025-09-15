@@ -19,7 +19,19 @@
       "Bash(git init:*)",
       "Bash(ls:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(rg:*)",
+      "Bash(git push:*)",
+      "Bash(touch:*)",
+      "Bash(node:*)",
+      "Bash(npm run test:*)",
+      "Bash(timeout 30s npm run build)",
+      "Bash(rm:*)",
+      "Bash(npm test)",
+      "Bash(chmod:*)",
+      "Bash(./scripts/verify-github-pages.sh:*)",
+      "Bash(VITE_GITHUB_PAGES=true npm run build)",
+      "Bash(VITE_GITHUB_PAGES=true npx vite build --mode production)"
     ],
     "deny": []
   }

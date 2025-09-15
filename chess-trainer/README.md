@@ -6,6 +6,16 @@
 [![React](https://img.shields.io/badge/React-18+-61DAFB.svg)](https://reactjs.org/)
 [![Quality Gate](https://img.shields.io/badge/Quality%20Gate-95%2F100-green.svg)](#quality-metrics)
 [![Test Coverage](https://img.shields.io/badge/Test%20Coverage-72%25-brightgreen.svg)](#testing)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-success.svg)](https://francescopuglia.github.io/Chess-trainer/)
+
+## 🌐 **LIVE DEMO**
+**🔗 [https://francescopuglia.github.io/Chess-trainer/](https://francescopuglia.github.io/Chess-trainer/)**
+
+Experience the full Chess Trainer Enterprise application deployed on GitHub Pages with:
+- ✅ Automatic deployment via GitHub Actions
+- ✅ Progressive Web App capabilities
+- ✅ Offline functionality with Service Worker
+- ✅ Real-time chess engine integration
 
 ## 🚀 **ENTERPRISE FEATURES**
 

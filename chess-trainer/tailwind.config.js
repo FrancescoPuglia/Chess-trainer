@@ -8,19 +8,10 @@ export default {
     extend: {
       colors: {
         chess: {
-          light: '#f0d9b5',
-          dark: '#b58863',
-          primary: '#769656',
-          secondary: '#eeeed2',
-          accent: '#baca2b'
+          primary: '#2563eb',
+          secondary: '#f1f5f9',
+          accent: '#10b981'
         }
-      },
-      fontFamily: {
-        mono: ['JetBrains Mono', 'Fira Code', 'Monaco', 'monospace'],
-      },
-      animation: {
-        'fade-in': 'fadeIn 0.5s ease-in-out',
-        'slide-up': 'slideUp 0.3s ease-out',
       }
     },
   },

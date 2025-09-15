@@ -10,7 +10,9 @@
  */
 
 import { createGameAPI, type IGameAPI } from '../../core/game-api';
-import type { VideoSyncPoint } from '../../types';
+import type { VideoSyncPoint, ChessMove } from '../../types';
+import { createSyncPoint } from '../../types';
+import logger from '../../utils/Logger';
 
 export interface SyncManagerConfig {
   hysteresisMs: number; // Default: 120ms
@@ -75,7 +77,7 @@ export class SyncManager {
     }
 
     if (this.config.debugMode) {
-      console.log(`🎯 SyncManager: Set ${this.syncPoints.length} sync points`);
+      logger.info('sync', 'Sync points configured for video timeline', { count: this.syncPoints.length }, { component: 'SyncManager', function: 'setSyncPoints' });
     }
   }
 
@@ -124,7 +126,7 @@ export class SyncManager {
       this.currentFen = candidatePoint.fen;
       
       if (this.config.debugMode) {
-        console.log(`🎯 Sync: t=${timestampSeconds.toFixed(1)}s → FEN updated (drift: ${drift.toFixed(1)}ms)`);
+        logger.debug('sync', 'Video sync position updated', { timestamp: timestampSeconds, drift, fen }, { component: 'SyncManager', function: 'fenForTime' });
       }
     }
 
@@ -202,7 +204,7 @@ export class SyncManager {
     // Performance warning if drift exceeds target
     if (driftMs > this.config.maxDriftMs) {
       this.stats.performanceWarnings++;
-      console.warn(`⚠️ SyncManager: High drift detected (${driftMs.toFixed(1)}ms > ${this.config.maxDriftMs}ms)`);
+      logger.warn('sync', 'High synchronization drift detected', { drift: driftMs, maxDrift: this.config.maxDriftMs }, { component: 'SyncManager', function: 'fenForTime' });
     }
   }
 
@@ -244,19 +246,27 @@ export class SyncManager {
       throw new Error('Invalid PGN provided for sync point generation');
     }
 
-    const history = tempGameAPI.history({ verbose: true });
+    const history = tempGameAPI.history({ verbose: true }) as ChessMove[];
     const points: VideoSyncPoint[] = [];
+    
+    // Type guard to ensure we have ChessMove objects
+    if (!history.length || typeof history[0] === 'string') {
+      logger.warn('sync', 'Sync point generation failed - insufficient move history data', {}, { component: 'SyncManager', function: 'generateSyncPointsFromMoves' });
+      return [];
+    }
     
     // Add starting position
     tempGameAPI.reset();
-    points.push({
+    points.push(createSyncPoint({
       id: 'start',
       timestamp: 0,
       fen: tempGameAPI.fen(),
-      moveNumber: 0,
+      moveNumber: 1,
+      moveIndex: 0,
+      isWhiteMove: true,
       description: 'Starting position',
       tolerance: this.config.hysteresisMs / 1000,
-    });
+    }));
 
     // Generate points for each move (evenly distributed over video duration)
     const timePerMove = videoDurationSeconds / (history.length + 1);
@@ -265,14 +275,19 @@ export class SyncManager {
       const move = history[i];
       const timestamp = (i + 1) * timePerMove;
       
-      points.push({
+      // Type guard - should not be needed after cast above, but for safety
+      if (typeof move === 'string') continue;
+      
+      points.push(createSyncPoint({
         id: `move-${i + 1}`,
         timestamp,
         fen: move.fen,
-        moveNumber: i + 1,
+        moveNumber: Math.floor((i + 1) / 2) + 1,
+        moveIndex: i + 1,
+        isWhiteMove: (i + 1) % 2 === 1,
         description: `After ${move.san}`,
         tolerance: this.config.hysteresisMs / 1000,
-      });
+      }));
     }
 
     return points;
@@ -291,3 +306,15 @@ export class SyncManager {
 }
 
 export default SyncManager;
+
+// Re-export enhanced sync components
+export { default as PredictiveSync } from './PredictiveSync';
+export { default as AdaptiveQualityController, QualityLevel } from './AdaptiveQualityController';
+export type { 
+  PredictiveSyncConfig
+} from './PredictiveSync';
+export type { 
+  QualityConfig,
+  SystemMetrics,
+  QualityStrategy
+} from './AdaptiveQualityController';

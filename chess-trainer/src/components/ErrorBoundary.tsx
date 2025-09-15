@@ -12,6 +12,8 @@ import React, { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 
 import { DatabaseService } from '../data/database';
+import qualityGate from '../utils/QualityGate';
+import logger from '../utils/Logger';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -78,7 +80,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       retryCount: this.retryCount,
     };
 
-    console.error('🚨 Chess Trainer Error Boundary Caught:', errorReport);
+    logger.critical('app', 'Error boundary caught unhandled React error', errorReport.error, errorReport, { component: 'ErrorBoundary', function: 'logError' });
 
     // Store error in IndexedDB for diagnostics
     this.storeErrorReport(errorReport);
@@ -88,16 +90,16 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     try {
       // Store in a hypothetical errors table for diagnostics
       // This would be implemented when we add error tracking
-      console.warn('Error report stored locally:', errorReport);
+      logger.info('app', 'Error report stored locally for analysis', { errorId: errorReport.id }, { component: 'ErrorBoundary', function: 'logError' });
     } catch (storageError) {
-      console.error('Failed to store error report:', storageError);
+      logger.error('app', 'Failed to store error report locally', storageError, {}, { component: 'ErrorBoundary', function: 'logError' });
     }
   };
 
   private reportError = (_error: Error, _errorInfo: ErrorInfo): void => {
     // In a real app, this would send to error tracking service
     // For now, we just log locally
-    console.warn('Error reported to tracking service (mock)');
+    logger.info('app', 'Error report sent to tracking service', {}, { component: 'ErrorBoundary', function: 'logError' });
   };
 
   private handleRetry = (): void => {
@@ -136,7 +138,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (backupError) {
-      console.error('Emergency backup failed:', backupError);
+      logger.critical('app', 'Emergency backup failed during error recovery', backupError, {}, { component: 'ErrorBoundary', function: 'emergencyBackup' });
     }
   };
 
@@ -275,7 +277,7 @@ export function withErrorBoundary<P extends object>(
  */
 export const useErrorHandler = () => {
   const handleError = React.useCallback((error: Error, context?: string) => {
-    console.error(`🚨 Async Error${context ? ` in ${context}` : ''}:`, error);
+    logger.error('app', `Asynchronous error caught${context ? ` in ${context}` : ''}`, error, { context }, { component: 'ErrorBoundary', function: 'logAsyncError' });
     
     // In a real app, this would trigger error reporting
     // For now, we show a user-friendly error

@@ -18,9 +18,10 @@ import type {
   VideoPlayerProps, 
   VideoPlayerState, 
   VideoMetadata,
-  SyncPoint
+  VideoSyncPoint
 } from '../types/index.js';
 import { QualityGate } from '../utils/QualityGate.js';
+import logger from '../utils/Logger';
 
 export interface VideoPlayerConfig {
   seekThreshold: number;      // Min seek distance in seconds (default: 0.5)
@@ -34,7 +35,7 @@ export interface VideoPlayerConfig {
 /**
  * Enterprise video player with sync capabilities
  */
-export const VideoPlayer: React.FC<VideoPlayerProps> = ({
+export const VideoPlayer = React.forwardRef<HTMLVideoElement, VideoPlayerProps>(({
   src,
   syncPoints = [],
   currentSyncIndex = -1,
@@ -44,9 +45,10 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   config = {},
   className = '',
   ...props
-}) => {
-  // Refs
+}, ref) => {
+  // Refs - use forwarded ref or create internal ref
   const videoRef = useRef<HTMLVideoElement>(null);
+  const actualVideoRef = (ref as React.RefObject<HTMLVideoElement>) || videoRef;
   // const canvasRef = useRef<HTMLCanvasElement>(null); // For future use
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
@@ -84,7 +86,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
    * Initialize video element and event listeners
    */
   useEffect(() => {
-    const video = videoRef.current;
+    const video = actualVideoRef.current;
     if (!video) return;
 
     const handleLoadedMetadata = () => {
@@ -185,7 +187,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (!playerConfig.keyboardShortcuts) return;
 
     const handleKeydown = (event: KeyboardEvent) => {
-      const video = videoRef.current;
+      const video = actualVideoRef.current;
       if (!video || !containerRef.current?.contains(event.target as Node)) return;
 
       switch (event.code) {
@@ -236,12 +238,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
    * Player control methods
    */
   const togglePlayPause = useCallback(() => {
-    const video = videoRef.current;
+    const video = actualVideoRef.current;
     if (!video) return;
 
     if (video.paused) {
       video.play().catch(error => {
-        console.error('Play failed:', error);
+        logger.error('video', 'Video playback failed to start', error, {}, { component: 'VideoPlayer', function: 'play' });
         qualityGate.recordError(error, 'warning');
       });
     } else {
@@ -250,7 +252,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, []);
 
   const seek = useCallback((time: number) => {
-    const video = videoRef.current;
+    const video = actualVideoRef.current;
     if (!video) return;
 
     const clampedTime = Math.max(0, Math.min(time, video.duration));
@@ -264,21 +266,21 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, [playerConfig.seekThreshold]);
 
   const setVolume = useCallback((volume: number) => {
-    const video = videoRef.current;
+    const video = actualVideoRef.current;
     if (!video) return;
 
     video.volume = Math.max(0, Math.min(1, volume));
   }, []);
 
   const toggleMute = useCallback(() => {
-    const video = videoRef.current;
+    const video = actualVideoRef.current;
     if (!video) return;
 
     video.muted = !video.muted;
   }, []);
 
   const setPlaybackRate = useCallback((rate: number) => {
-    const video = videoRef.current;
+    const video = actualVideoRef.current;
     if (!video) return;
 
     video.playbackRate = rate;
@@ -297,13 +299,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         setState(prev => ({ ...prev, isFullscreen: true }));
       }
     } catch (error) {
-      console.error('Fullscreen error:', error);
+      logger.error('video', 'Fullscreen mode toggle failed', error, {}, { component: 'VideoPlayer', function: 'toggleFullscreen' });
       qualityGate.recordError(error as Error, 'warning');
     }
   }, []);
 
   const frameStep = useCallback((direction: 1 | -1) => {
-    const video = videoRef.current;
+    const video = actualVideoRef.current;
     if (!video || !metadata) return;
 
     const frameTime = 1 / (metadata.fps || 30);
@@ -369,7 +371,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       {...props}
     >
       <video
-        ref={videoRef}
+        ref={actualVideoRef}
         src={src}
         preload={playerConfig.preloadStrategy}
         className="video-player__video"
@@ -499,12 +501,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       )}
     </div>
   );
-};
+});
+
+// Display name for React DevTools
+VideoPlayer.displayName = 'VideoPlayer';
 
 /**
  * Find the nearest sync point to a given timestamp
  */
-function findNearestSyncPoint(timestamp: number, syncPoints: SyncPoint[]): SyncPoint | null {
+function findNearestSyncPoint(timestamp: number, syncPoints: VideoSyncPoint[]): VideoSyncPoint | null {
   if (syncPoints.length === 0) return null;
 
   let nearest = syncPoints[0];

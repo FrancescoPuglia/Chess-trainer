@@ -12,36 +12,12 @@
  * - Grade validation and normalization
  */
 
+import logger from '../../utils/Logger';
 import type { SRSCard, SRSReview, SRSParameters } from '../../types';
 
 export type Grade = 0 | 1 | 2 | 3 | 4 | 5; // FSRS standard grading
 
-export interface FSRSCard {
-  id: string;
-  type: 'move' | 'plan';
-  fen: string;
-  solution: string;
-  tags: string[];
-  
-  // FSRS-specific fields
-  stability: number;     // Days until 90% retention probability
-  difficulty: number;    // 1-10 scale, higher = more difficult
-  reps: number;         // Number of successful reviews
-  lapses: number;       // Number of failed reviews
-  
-  // Scheduling
-  dueDate: Date;
-  lastReview?: Date;
-  interval: number;     // Current interval in days
-  
-  // Metadata
-  createdAt: Date;
-  updatedAt: Date;
-  
-  // Flags
-  isLeech: boolean;     // Marked as problematic card
-  isSuspended: boolean; // Temporarily disabled
-}
+// Using SRSCard from types instead of local FSRSCard interface
 
 export interface FSRSParameters {
   // Core FSRS parameters (simplified version)
@@ -115,9 +91,9 @@ export class FSRSCore {
    * Grade a card using FSRS algorithm
    * This is the core implementation matching the technical plan
    */
-  gradeCard(card: FSRSCard, grade: Grade): FSRSCard {
+  gradeCard(card: SRSCard, grade: Grade): SRSCard {
     const now = new Date();
-    const isNew = card.reps === 0;
+    const isNew = (card.reps ?? 0) === 0;
     
     // Validate grade
     if (grade < 0 || grade > 5 || !Number.isInteger(grade)) {
@@ -152,7 +128,7 @@ export class FSRSCore {
   /**
    * Handle new card grading
    */
-  private handleNewCard(card: FSRSCard, grade: Grade): FSRSCard {
+  private handleNewCard(card: SRSCard, grade: Grade): SRSCard {
     const updated = { ...card };
     
     // Initialize FSRS parameters for new cards
@@ -165,7 +141,7 @@ export class FSRSCore {
       updated.interval = grade === 5 ? this.parameters.easyInterval : this.parameters.graduatingInterval;
     } else {
       // Card enters learning phase
-      updated.lapses += 1;
+      updated.lapses = (updated.lapses ?? 0) + 1;
       updated.interval = this.parameters.learningSteps[0] / (24 * 60); // Convert minutes to days
     }
 
@@ -176,32 +152,33 @@ export class FSRSCore {
   /**
    * Handle review card grading
    */
-  private handleReviewCard(card: FSRSCard, grade: Grade, elapsedDays: number): FSRSCard {
+  private handleReviewCard(card: SRSCard, grade: Grade, elapsedDays: number): SRSCard {
     const updated = { ...card };
 
     if (grade < 3) {
       // Failed review - lapse
-      updated.lapses += 1;
+      updated.lapses = (updated.lapses ?? 0) + 1;
       updated.reps = 0; // Reset reps
-      updated.stability = Math.max(1, updated.stability * 0.5); // Reduce stability
+      updated.stability = Math.max(1, (updated.stability ?? 1) * 0.5); // Reduce stability
       updated.interval = this.parameters.learningSteps[0] / (24 * 60);
     } else {
       // Successful review
-      updated.reps += 1;
+      updated.reps = (updated.reps ?? 0) + 1;
       
       // Update difficulty (gets easier with good grades)
+      const currentDifficulty = updated.difficulty ?? this.parameters.initialDifficulty;
       const difficultyChange = (3 - grade) * this.parameters.difficultyDecay;
-      updated.difficulty = Math.max(1, Math.min(10, updated.difficulty + difficultyChange));
+      updated.difficulty = Math.max(1, Math.min(10, currentDifficulty + difficultyChange));
       
       // Update stability using FSRS formula (simplified)
       const stabilityIncrease = this.calculateStabilityIncrease(updated, grade, elapsedDays);
-      updated.stability = Math.max(1, updated.stability + stabilityIncrease);
+      updated.stability = Math.max(1, (updated.stability ?? 1) + stabilityIncrease);
       
       // Calculate new interval
-      updated.interval = Math.min(updated.stability, this.parameters.maximumInterval);
+      updated.interval = Math.min(updated.stability ?? 1, this.parameters.maximumInterval);
     }
 
-    updated.dueDate = this.calculateDueDate(updated.interval);
+    updated.dueDate = this.calculateDueDate(updated.interval ?? 1);
     return updated;
   }
 
@@ -216,13 +193,16 @@ export class FSRSCore {
   /**
    * Calculate stability increase using simplified FSRS formula
    */
-  private calculateStabilityIncrease(card: FSRSCard, grade: Grade, elapsedDays: number): number {
+  private calculateStabilityIncrease(card: SRSCard, grade: Grade, elapsedDays: number): number {
     // Simplified FSRS formula - in reality this would be more complex
-    const retrievabilityFactor = Math.max(0.1, 1 - (elapsedDays / card.stability));
-    const gradeFactor = (grade - 3) * 0.15 + 1; // Positive for good grades
-    const difficultyFactor = Math.max(0.5, 1 - (card.difficulty - 5) * 0.1);
+    const stability = card.stability ?? 1;
+    const difficulty = card.difficulty ?? this.parameters.initialDifficulty;
     
-    return Math.max(0.1, card.stability * 0.1 * retrievabilityFactor * gradeFactor * difficultyFactor);
+    const retrievabilityFactor = Math.max(0.1, 1 - (elapsedDays / stability));
+    const gradeFactor = (grade - 3) * 0.15 + 1; // Positive for good grades
+    const difficultyFactor = Math.max(0.5, 1 - (difficulty - 5) * 0.1);
+    
+    return Math.max(0.1, stability * 0.1 * retrievabilityFactor * gradeFactor * difficultyFactor);
   }
 
   /**
@@ -237,8 +217,11 @@ export class FSRSCore {
   /**
    * Update leech status based on lapses
    */
-  private updateLeechStatus(card: FSRSCard): FSRSCard {
-    if (card.lapses >= this.parameters.leechThreshold && !card.isLeech) {
+  private updateLeechStatus(card: SRSCard): SRSCard {
+    const lapses = card.lapses ?? 0;
+    const isLeech = card.isLeech ?? false;
+    
+    if (lapses >= this.parameters.leechThreshold && !isLeech) {
       const updated = { ...card };
       updated.isLeech = true;
       
@@ -251,7 +234,7 @@ export class FSRSCore {
         }
       }
       
-      console.warn(`🐛 Card marked as leech: ${card.id} (${card.lapses} lapses)`);
+      logger.warn('srs', 'Card marked as leech due to excessive failures', { cardId: card.id, lapses, threshold: this.config.leechThreshold }, { component: 'FSRSCore', function: 'scheduleCard' });
       return updated;
     }
     
@@ -275,11 +258,11 @@ export class FSRSCore {
   /**
    * Get cards due for review
    */
-  getDueCards(cards: FSRSCard[], limit?: number): FSRSCard[] {
+  getDueCards(cards: SRSCard[], limit?: number): SRSCard[] {
     const now = new Date();
     const dueCards = cards
-      .filter(card => !card.isSuspended && card.dueDate <= now)
-      .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+      .filter(card => !(card.isSuspended ?? false) && (card.dueDate ?? new Date()) <= now)
+      .sort((a, b) => (a.dueDate?.getTime() ?? 0) - (b.dueDate?.getTime() ?? 0));
     
     return limit ? dueCards.slice(0, limit) : dueCards;
   }
@@ -287,9 +270,9 @@ export class FSRSCore {
   /**
    * Get new cards ready for learning
    */
-  getNewCards(cards: FSRSCard[], limit?: number): FSRSCard[] {
+  getNewCards(cards: SRSCard[], limit?: number): SRSCard[] {
     const newCards = cards
-      .filter(card => !card.isSuspended && card.reps === 0 && card.lapses === 0)
+      .filter(card => !(card.isSuspended ?? false) && (card.reps ?? 0) === 0 && (card.lapses ?? 0) === 0)
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
     
     return limit ? newCards.slice(0, limit) : newCards;
@@ -298,28 +281,28 @@ export class FSRSCore {
   /**
    * Get current statistics
    */
-  getStats(cards: FSRSCard[]): ReviewStats {
+  getStats(cards: SRSCard[]): ReviewStats {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     const stats: ReviewStats = {
       totalCards: cards.length,
-      dueCards: cards.filter(c => !c.isSuspended && c.dueDate <= now).length,
-      newCards: cards.filter(c => !c.isSuspended && c.reps === 0 && c.lapses === 0).length,
-      learningCards: cards.filter(c => !c.isSuspended && c.reps === 0 && c.lapses > 0).length,
-      reviewCards: cards.filter(c => !c.isSuspended && c.reps > 0).length,
+      dueCards: cards.filter(c => !(c.isSuspended ?? false) && (c.dueDate ?? new Date()) <= now).length,
+      newCards: cards.filter(c => !(c.isSuspended ?? false) && (c.reps ?? 0) === 0 && (c.lapses ?? 0) === 0).length,
+      learningCards: cards.filter(c => !(c.isSuspended ?? false) && (c.reps ?? 0) === 0 && (c.lapses ?? 0) > 0).length,
+      reviewCards: cards.filter(c => !(c.isSuspended ?? false) && (c.reps ?? 0) > 0).length,
       
       todayReviews: this.stats.todayReviews,
       todayCorrect: this.stats.todayCorrect,
       currentAccuracy: this.stats.currentAccuracy,
       
       averageInterval: cards.length > 0 
-        ? cards.reduce((sum, c) => sum + c.interval, 0) / cards.length 
+        ? cards.reduce((sum, c) => sum + (c.interval ?? 0), 0) / cards.length 
         : 0,
       averageDifficulty: cards.length > 0 
-        ? cards.reduce((sum, c) => sum + c.difficulty, 0) / cards.length 
+        ? cards.reduce((sum, c) => sum + (c.difficulty ?? 5), 0) / cards.length 
         : 5,
-      leechCount: cards.filter(c => c.isLeech).length,
+      leechCount: cards.filter(c => c.isLeech ?? false).length,
     };
     
     return stats;
@@ -328,8 +311,8 @@ export class FSRSCore {
   /**
    * SM-2 fallback algorithm for compatibility
    */
-  gradeSM2(card: FSRSCard, grade: Grade): FSRSCard {
-    console.warn('🔄 Using SM-2 fallback algorithm');
+  gradeSM2(card: SRSCard, grade: Grade): SRSCard {
+    logger.warn('srs', 'Falling back to SM-2 algorithm due to insufficient FSRS data', {}, { component: 'FSRSCore', function: 'sm2Fallback' });
     
     const updated = { ...card };
     updated.lastReview = new Date();
@@ -337,22 +320,26 @@ export class FSRSCore {
 
     if (grade < 3) {
       updated.reps = 0;
-      updated.lapses += 1;
+      updated.lapses = (updated.lapses ?? 0) + 1;
       updated.interval = 1;
     } else {
-      if (updated.reps === 0) {
+      const currentReps = updated.reps ?? 0;
+      const currentInterval = updated.interval ?? 1;
+      const currentDifficulty = updated.difficulty ?? 5;
+      
+      if (currentReps === 0) {
         updated.interval = 1;
-      } else if (updated.reps === 1) {
+      } else if (currentReps === 1) {
         updated.interval = 6;
       } else {
         // SM-2 formula: I(n) = I(n-1) * EF
-        const easeFactor = Math.max(1.3, updated.difficulty / 10 + (0.1 * (5 - grade) * (0.08 + 0.02 * grade)));
-        updated.interval = Math.round(updated.interval * easeFactor);
+        const easeFactor = Math.max(1.3, currentDifficulty / 10 + (0.1 * (5 - grade) * (0.08 + 0.02 * grade)));
+        updated.interval = Math.round(currentInterval * easeFactor);
       }
-      updated.reps += 1;
+      updated.reps = currentReps + 1;
     }
 
-    updated.dueDate = this.calculateDueDate(updated.interval);
+    updated.dueDate = this.calculateDueDate(updated.interval ?? 1);
     return this.updateLeechStatus(updated);
   }
 

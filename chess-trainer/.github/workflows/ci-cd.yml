@@ -1,0 +1,426 @@
+# ♔ CHESS TRAINER ENTERPRISE - CI/CD PIPELINE
+# Comprehensive automation for testing, building, and deployment
+
+name: 🚀 CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+env:
+  NODE_VERSION: '20'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ==========================================
+  # Code Quality and Security Analysis
+  # ==========================================
+  quality-gate:
+    name: 🔍 Quality Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci --prefer-offline --no-audit
+          npm ls --depth=0
+
+      - name: 🔧 Type Checking
+        run: npm run type-check
+
+      - name: 🎨 Code Formatting
+        run: npm run format:check
+
+      - name: 🧹 Linting
+        run: npm run lint
+
+      - name: 🔐 Security Audit
+        run: npm audit --audit-level=moderate
+
+      - name: 📊 Bundle Analysis
+        run: |
+          ANALYZE=true npm run build
+          ls -la dist/
+
+      - name: 🏷️ SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # ==========================================
+  # Comprehensive Testing Suite
+  # ==========================================
+  test-suite:
+    name: 🧪 Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: quality-gate
+    
+    strategy:
+      matrix:
+        test-type: [unit, integration, e2e]
+        
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: npm ci --prefer-offline
+
+      - name: 🧪 Run Tests - ${{ matrix.test-type }}
+        run: |
+          case "${{ matrix.test-type }}" in
+            "unit")
+              npm run test:run -- tests/framework tests/setup.ts
+              ;;
+            "integration")
+              npm run test:run -- tests/integration
+              ;;
+            "e2e")
+              npm run test:run -- tests/e2e
+              ;;
+          esac
+
+      - name: 📊 Generate Coverage
+        if: matrix.test-type == 'unit'
+        run: npm run test:coverage
+
+      - name: 📤 Upload Coverage
+        if: matrix.test-type == 'unit'
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+
+      - name: 💾 Store Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.test-type }}
+          path: |
+            test-results/
+            coverage/
+          retention-days: 30
+
+  # ==========================================
+  # Performance and Accessibility Testing
+  # ==========================================
+  performance-test:
+    name: ⚡ Performance Testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: quality-gate
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: npm ci --prefer-offline
+
+      - name: 🏗️ Build Application
+        run: npm run build
+
+      - name: 🚀 Start Application
+        run: |
+          npm run preview &
+          sleep 10
+
+      - name: 🏃‍♂️ Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v10
+        with:
+          configPath: './lighthouse.config.js'
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+
+      - name: ♿ Accessibility Testing
+        run: |
+          npx @axe-core/cli http://localhost:4173 \
+            --exit \
+            --save lighthouse-accessibility.json \
+            --tags wcag2a,wcag2aa
+
+      - name: 📤 Upload Performance Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-results
+          path: |
+            lighthouse-accessibility.json
+            .lighthouseci/
+          retention-days: 30
+
+  # ==========================================
+  # Security and Vulnerability Scanning
+  # ==========================================
+  security-scan:
+    name: 🛡️ Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: quality-gate
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔍 Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: 📤 Upload Trivy Results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: 🔐 CodeQL Analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+
+      - name: 🏗️ Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: 🔍 Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  # ==========================================
+  # Docker Image Build and Security Scan
+  # ==========================================
+  docker-build:
+    name: 🐳 Docker Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [test-suite, performance-test, security-scan]
+    
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+      digest: ${{ steps.build.outputs.digest }}
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🏷️ Extract Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🏗️ Build and Push Docker Image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          target: production
+
+      - name: 🏷️ Output Image
+        id: image
+        run: |
+          echo "image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}" >> $GITHUB_OUTPUT
+
+      - name: 🔍 Scan Docker Image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.image.outputs.image }}
+          format: 'sarif'
+          output: 'docker-trivy-results.sarif'
+
+      - name: 📤 Upload Docker Scan Results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'docker-trivy-results.sarif'
+
+  # ==========================================
+  # Deployment to Staging
+  # ==========================================
+  deploy-staging:
+    name: 🚀 Deploy to Staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: docker-build
+    if: github.ref == 'refs/heads/develop'
+    
+    environment:
+      name: staging
+      url: https://staging.chesstrainer.com
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🚀 Deploy to Staging
+        uses: ./.github/actions/deploy
+        with:
+          environment: staging
+          image: ${{ needs.docker-build.outputs.image }}
+          deploy-key: ${{ secrets.STAGING_DEPLOY_KEY }}
+          
+      - name: 🔍 Post-Deployment Tests
+        run: |
+          # Wait for deployment to be ready
+          sleep 30
+          
+          # Run smoke tests
+          curl -f https://staging.chesstrainer.com/health
+          curl -f https://staging.chesstrainer.com/manifest.json
+
+      - name: 💬 Notify Deployment
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        if: always()
+
+  # ==========================================
+  # Deployment to Production
+  # ==========================================
+  deploy-production:
+    name: 🌟 Deploy to Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: docker-build
+    if: github.event_name == 'release' && github.event.action == 'published'
+    
+    environment:
+      name: production
+      url: https://chesstrainer.com
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🚀 Deploy to Production
+        uses: ./.github/actions/deploy
+        with:
+          environment: production
+          image: ${{ needs.docker-build.outputs.image }}
+          deploy-key: ${{ secrets.PRODUCTION_DEPLOY_KEY }}
+          
+      - name: 🔍 Production Health Checks
+        run: |
+          # Comprehensive production health checks
+          sleep 60
+          
+          # Basic connectivity
+          curl -f https://chesstrainer.com/health
+          
+          # Performance check
+          time curl -w "@curl-format.txt" -o /dev/null https://chesstrainer.com/
+          
+          # Security headers check
+          curl -I https://chesstrainer.com/ | grep -E "(Strict-Transport-Security|Content-Security-Policy|X-Frame-Options)"
+
+      - name: 📊 Update Release Notes
+        uses: release-drafter/release-drafter@v5
+        with:
+          config-name: release-drafter.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🎉 Notify Success
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          channel: '#general'
+          text: |
+            🎉 Chess Trainer Enterprise v${{ github.event.release.tag_name }} has been successfully deployed to production!
+            
+            🔗 https://chesstrainer.com
+            📋 Release Notes: ${{ github.event.release.html_url }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+  # ==========================================
+  # Post-Deployment Monitoring
+  # ==========================================
+  post-deployment:
+    name: 📊 Post-Deployment Monitoring
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
+    if: always() && (needs.deploy-staging.result == 'success' || needs.deploy-production.result == 'success')
+    
+    steps:
+      - name: 📈 Trigger Monitoring
+        run: |
+          # Trigger monitoring and alerting systems
+          echo "Setting up monitoring for new deployment..."
+          
+          # Example: Trigger Datadog deployment event
+          curl -X POST "https://api.datadoghq.com/api/v1/events" \
+            -H "Content-Type: application/json" \
+            -H "DD-API-KEY: ${{ secrets.DATADOG_API_KEY }}" \
+            -d '{
+              "title": "Chess Trainer Deployment",
+              "text": "New version deployed",
+              "priority": "normal",
+              "tags": ["deployment", "chess-trainer"],
+              "alert_type": "success"
+            }'
+
+      - name: 🚨 Setup Alerts
+        run: |
+          echo "Configuring deployment-specific alerts..."
+          # Add any post-deployment alert configuration here

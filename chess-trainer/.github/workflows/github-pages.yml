@@ -1,0 +1,193 @@
+# ♔ GITHUB PAGES DEPLOYMENT
+# Automated deployment to GitHub Pages with enterprise optimizations
+
+name: 🚀 Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  # Build job
+  build:
+    name: 🏗️ Build Application
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'chess-trainer/package-lock.json'
+
+      - name: 🔧 Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: 📦 Install Dependencies
+        working-directory: chess-trainer
+        run: |
+          npm ci --prefer-offline --no-audit
+          npm ls --depth=0
+
+      - name: 🏗️ Build Application for GitHub Pages
+        working-directory: chess-trainer
+        env:
+          VITE_GITHUB_PAGES: 'true'
+          VITE_BASE_URL: '/Chess-trainer/'
+          NODE_ENV: 'production'
+        run: |
+          # Use simplified build for GitHub Pages
+          npm run build:github-pages
+          
+          # Verify build output
+          ls -la dist/
+          echo "Build completed successfully"
+
+      - name: 📊 Generate Build Report
+        working-directory: chess-trainer
+        run: |
+          echo "## 📊 Build Summary" >> build-report.md
+          echo "- **Build Time**: $(date)" >> build-report.md
+          echo "- **Node Version**: $(node --version)" >> build-report.md
+          echo "- **NPM Version**: $(npm --version)" >> build-report.md
+          echo "- **Dist Size**: $(du -sh dist/ | cut -f1)" >> build-report.md
+          echo "- **Files Count**: $(find dist/ -type f | wc -l)" >> build-report.md
+          echo "" >> build-report.md
+          echo "### 📁 Build Contents:" >> build-report.md
+          find dist/ -type f -name "*.js" -o -name "*.css" -o -name "*.html" | head -20 >> build-report.md
+
+      - name: 🔍 Validate Build Output
+        working-directory: chess-trainer
+        run: |
+          # Check that essential files exist
+          test -f dist/index.html || (echo "❌ index.html not found" && exit 1)
+          test -f dist/404.html || (echo "❌ 404.html not found" && exit 1)
+          
+          # Check that assets directory exists and has content
+          test -d dist/assets || (echo "❌ assets directory not found" && exit 1)
+          
+          # Verify that index.html contains expected content
+          grep -q "Chess Trainer" dist/index.html || (echo "❌ App content not found in index.html" && exit 1)
+          
+          # Check bundle sizes
+          js_size=$(find dist/assets -name "*.js" -exec ls -la {} \; | awk '{sum += $5} END {print sum}')
+          css_size=$(find dist/assets -name "*.css" -exec ls -la {} \; | awk '{sum += $5} END {print sum}')
+          
+          echo "📊 Bundle Sizes:"
+          echo "- JavaScript: $((js_size / 1024))KB"
+          echo "- CSS: $((css_size / 1024))KB"
+          
+          # Warn if bundles are too large
+          if [ $js_size -gt 1048576 ]; then
+            echo "⚠️ Warning: JavaScript bundle is larger than 1MB"
+          fi
+          
+          echo "✅ Build validation successful"
+
+      - name: 📤 Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './chess-trainer/dist'
+
+  # Deployment job
+  deploy:
+    name: 🚀 Deploy to Pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+      - name: 🌟 Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # Post-deployment verification
+  verify:
+    name: 🔍 Verify Deployment
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: success()
+    
+    steps:
+      - name: 🏥 Health Check
+        run: |
+          echo "🔍 Verifying deployment..."
+          
+          # Wait for deployment to be available
+          sleep 30
+          
+          # Check main page
+          response=$(curl -s -o /dev/null -w "%{http_code}" "https://francescopuglia.github.io/Chess-trainer/")
+          if [ "$response" = "200" ]; then
+            echo "✅ Main page is accessible"
+          else
+            echo "❌ Main page returned HTTP $response"
+            exit 1
+          fi
+          
+          # Check that it's actually serving our app
+          content=$(curl -s "https://francescopuglia.github.io/Chess-trainer/")
+          if echo "$content" | grep -q "Chess Trainer"; then
+            echo "✅ App content is being served correctly"
+          else
+            echo "❌ App content not found"
+            exit 1
+          fi
+          
+          # Check 404.html for SPA routing
+          response_404=$(curl -s -o /dev/null -w "%{http_code}" "https://francescopuglia.github.io/Chess-trainer/404.html")
+          if [ "$response_404" = "200" ]; then
+            echo "✅ 404.html is accessible for SPA routing"
+          else
+            echo "⚠️ Warning: 404.html returned HTTP $response_404"
+          fi
+          
+          echo "🎉 Deployment verification completed successfully!"
+
+      - name: 📊 Performance Check
+        run: |
+          echo "📊 Running basic performance checks..."
+          
+          # Check page load time
+          load_time=$(curl -w "%{time_total}" -s -o /dev/null "https://francescopuglia.github.io/Chess-trainer/")
+          echo "⏱️ Page load time: ${load_time}s"
+          
+          # Warn if load time is too high
+          if (( $(echo "$load_time > 3.0" | bc -l) )); then
+            echo "⚠️ Warning: Page load time is higher than 3 seconds"
+          else
+            echo "✅ Page load time is acceptable"
+          fi
+
+      - name: 💬 Deployment Notification
+        if: success()
+        run: |
+          echo "🎉 Chess Trainer Enterprise has been successfully deployed!"
+          echo "🔗 Live URL: https://francescopuglia.github.io/Chess-trainer/"
+          echo "📊 Deployment completed at: $(date)"
+          echo ""
+          echo "### Next Steps:"
+          echo "1. Visit the live application"
+          echo "2. Test core functionality"
+          echo "3. Verify chess engine is working"
+          echo "4. Check video upload and sync features"

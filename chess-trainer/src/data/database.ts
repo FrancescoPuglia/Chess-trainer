@@ -18,6 +18,7 @@
 import Dexie from 'dexie';
 import type { Table } from 'dexie';
 
+import logger from '../utils/Logger';
 import type { DatabaseSchema } from '../types';
 
 export class ChessTrainerDB extends Dexie {
@@ -95,14 +96,14 @@ export class DatabaseService {
       // Request persistent storage to prevent data eviction
       if ('storage' in navigator && 'persist' in navigator.storage) {
         const granted = await navigator.storage.persist();
-        console.log('Persistent storage:', granted ? 'granted' : 'denied');
+        logger.info('database', 'Persistent storage permission status', { granted }, { component: 'DatabaseService', function: 'initialize' });
       }
 
       // Open database and run any pending upgrades
       await db.open();
-      console.log('Database initialized successfully');
+      logger.info('database', 'Database service initialized successfully', {}, { component: 'DatabaseService', function: 'initialize' });
     } catch (error) {
-      console.error('Database initialization failed:', error);
+      logger.error('database', 'Database initialization failed', error, {}, { component: 'DatabaseService', function: 'initialize' });
       throw error;
     }
   }
@@ -130,7 +131,7 @@ export class DatabaseService {
 
       return { usage, quota, usagePercent, persistent };
     } catch (error) {
-      console.warn('Could not get storage estimate:', error);
+      logger.warn('database', 'Storage usage estimate unavailable', { error: error.message }, { component: 'DatabaseService', function: 'getStorageInfo' });
       return { usage: 0, quota: 0, usagePercent: 0, persistent: false };
     }
   }
@@ -161,7 +162,7 @@ export class DatabaseService {
 
       return JSON.stringify(data, null, 2);
     } catch (error) {
-      console.error('Export failed:', error);
+      logger.error('database', 'Database export operation failed', error, {}, { component: 'DatabaseService', function: 'exportData' });
       throw new Error('Failed to export data');
     }
   }
@@ -198,9 +199,9 @@ export class DatabaseService {
         if (data.tables.kpis) await db.kpis.bulkAdd(data.tables.kpis);
       });
 
-      console.log('Data imported successfully');
+      logger.info('database', 'Database import completed successfully', {}, { component: 'DatabaseService', function: 'importData' });
     } catch (error) {
-      console.error('Import failed:', error);
+      logger.error('database', 'Database import operation failed', error, {}, { component: 'DatabaseService', function: 'importData' });
       throw new Error('Failed to import data');
     }
   }
@@ -232,7 +233,84 @@ export class DatabaseService {
         .delete();
     });
 
-    console.log(`Cleaned up data older than ${retentionDays} days`);
+    logger.info('database', 'Data cleanup completed successfully', { retentionDays }, { component: 'DatabaseService', function: 'cleanupOldData' });
+  }
+
+  /**
+   * Create new SRS card with validation
+   */
+  static async createSRSCard(card: DatabaseSchema['srsCards']): Promise<string> {
+    try {
+      // Validate required fields
+      if (!card.fen || !card.solution || !card.createdAt) {
+        throw new Error('Missing required fields for SRS card');
+      }
+
+      // Check for duplicates (same FEN and solution)
+      const existing = await db.srsCards
+        .where(['fen', 'solution'])
+        .equals([card.fen, card.solution])
+        .first();
+
+      if (existing) {
+        logger.warn('database', 'SRS card creation skipped - already exists', { cardId: existing.id }, { component: 'DatabaseService', function: 'createSRSCard' });
+        return existing.id;
+      }
+
+      const id = await db.srsCards.add(card);
+      logger.info('database', 'SRS card created successfully', { cardId: id }, { component: 'DatabaseService', function: 'createSRSCard' });
+      return String(id);
+    } catch (error) {
+      logger.error('database', 'SRS card creation failed', error, {}, { component: 'DatabaseService', function: 'createSRSCard' });
+      throw error;
+    }
+  }
+
+  /**
+   * Create new study session
+   */
+  static async createStudySession(session: DatabaseSchema['studySessions']): Promise<string> {
+    try {
+      if (!session.startTime || !session.duration) {
+        throw new Error('Missing required fields for study session');
+      }
+
+      const id = await db.studySessions.add(session);
+      logger.info('database', 'Study session created successfully', { sessionId: id }, { component: 'DatabaseService', function: 'createStudySession' });
+      return String(id);
+    } catch (error) {
+      logger.error('database', 'Study session creation failed', error, {}, { component: 'DatabaseService', function: 'createStudySession' });
+      throw error;
+    }
+  }
+
+  /**
+   * Get SRS cards due for review
+   */
+  static async getDueCards(limit = 20): Promise<DatabaseSchema['srsCards'][]> {
+    const now = new Date();
+    return await db.srsCards
+      .where('dueDate')
+      .belowOrEqual(now)
+      .and(card => !card.isSuspended)
+      .limit(limit)
+      .toArray();
+  }
+
+  /**
+   * Update SRS card after review
+   */
+  static async updateSRSCard(cardId: string, updates: Partial<DatabaseSchema['srsCards']>): Promise<void> {
+    try {
+      await db.srsCards.update(cardId, {
+        ...updates,
+        updatedAt: new Date(),
+      });
+      logger.info('database', 'SRS card updated successfully', { cardId }, { component: 'DatabaseService', function: 'updateSRSCard' });
+    } catch (error) {
+      logger.error('database', 'SRS card update failed', error, {}, { component: 'DatabaseService', function: 'updateSRSCard' });
+      throw error;
+    }
   }
 
   /**
@@ -245,7 +323,7 @@ export class DatabaseService {
       try {
         stats[tableName] = await table.count();
       } catch (error) {
-        console.warn(`Could not count ${tableName}:`, error);
+        logger.warn('database', 'Table row count failed', { tableName, error: error.message }, { component: 'DatabaseService', function: 'getStorageInfo' });
         stats[tableName] = -1;
       }
     }

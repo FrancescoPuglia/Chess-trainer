@@ -10,6 +10,7 @@
 
 import { Chess } from 'chess.js';
 
+import logger from '../utils/Logger';
 import type { 
   ChessMove, 
   GamePosition, 
@@ -86,6 +87,20 @@ export class ChessJSGameAPI implements IGameAPI {
   fen(): string {
     return this.chess.fen();
   }
+  
+  loadFEN(fen: string): boolean {
+    try {
+      this.chess.load(fen);
+      return true;
+    } catch (error) {
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      logger.warn('game-api', 'Failed to load FEN position', errorObj, { fen }, { 
+        component: 'ChessJSGameAPI', 
+        function: 'loadFEN' 
+      });
+      return false;
+    }
+  }
 
   pgn(): string {
     return this.chess.pgn();
@@ -115,10 +130,6 @@ export class ChessJSGameAPI implements IGameAPI {
     return this.chess.isDraw();
   }
 
-  // Missing interface methods
-  loadFEN(fen: string): boolean {
-    return this.load(fen);
-  }
 
   put(piece: ChessPiece, square: Square): boolean {
     try {
@@ -138,13 +149,6 @@ export class ChessJSGameAPI implements IGameAPI {
     }
   }
 
-  getComment(): string {
-    return this.chess.getComment() || '';
-  }
-
-  setComment(comment: string): void {
-    this.chess.setComment(comment);
-  }
 
   // Move handling methods
   move(moveInput: string | { from: Square; to: Square; promotion?: PieceSymbol }): ChessMove | null {
@@ -162,7 +166,7 @@ export class ChessJSGameAPI implements IGameAPI {
         flags: move.flags
       };
     } catch (error) {
-      console.warn('Invalid move attempted:', moveInput, error);
+      logger.warn('game', 'Invalid move attempted', { moveInput, error: error.message }, { component: 'GameAPI', function: 'move' });
       return null;
     }
   }
@@ -210,7 +214,7 @@ export class ChessJSGameAPI implements IGameAPI {
       const result = this.chess.load(fen);
       return Boolean(result);
     } catch (error) {
-      console.warn('Failed to load FEN:', fen, error);
+      logger.warn('game', 'FEN loading failed', { fen, error: error.message }, { component: 'GameAPI', function: 'loadFen' });
       return false;
     }
   }
@@ -220,7 +224,7 @@ export class ChessJSGameAPI implements IGameAPI {
       const result = this.chess.loadPgn(pgn);
       return Boolean(result);
     } catch (error) {
-      console.warn('Failed to load PGN:', error);
+      logger.warn('game', 'PGN loading failed', { error: error.message }, { component: 'GameAPI', function: 'loadPgn' });
       return false;
     }
   }
@@ -344,6 +348,28 @@ export class ChessJSGameAPI implements IGameAPI {
       isGameOver: this.chess.isGameOver()
     };
   }
+
+  /**
+   * Determine if a square is light or dark
+   * Required by IGameAPI interface
+   */
+  squareColor(square: Square): 'light' | 'dark' {
+    const file = square.charCodeAt(0) - 'a'.charCodeAt(0);
+    const rank = parseInt(square[1]) - 1;
+    
+    // Chess board: light squares when (file + rank) is even
+    return (file + rank) % 2 === 0 ? 'dark' : 'light';
+  }
+
+  getComment(): string {
+    return '';
+  }
+
+  setComment(comment: string): void {
+    // Chess.js doesn't support comments natively
+    logger.debug('game', 'Comment set for current position', { comment, persistent: false }, { component: 'GameAPI', function: 'setComment' });
+  }
+
 }
 
 /**

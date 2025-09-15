@@ -21,11 +21,13 @@ import type {
   SyncEditorState,
   SyncValidationResult,
   SyncImportResult,
-} from '../types/index.js';
-import { VideoPlayer } from './VideoPlayer.js';
-import { ChessgroundBoard } from './ChessgroundBoard.js';
-import { SyncManager } from '../modules/sync/SyncManager.js';
-import { QualityGate } from '../utils/QualityGate.js';
+} from '../types/index';
+import { createSyncPoint } from '../types/index';
+import { VideoPlayer } from './VideoPlayer';
+import { ChessgroundBoard } from './ChessgroundBoard';
+import { SyncManager } from '../modules/sync/SyncManager';
+import { qualityGate } from '../utils/QualityGate';
+import logger from '../utils/Logger';
 
 export interface SyncEditorConfig {
   maxDriftMs: number;           // Maximum allowed drift (default: 300ms)
@@ -60,7 +62,7 @@ export const SyncEditor: React.FC<SyncEditorProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const syncManager = useRef(new SyncManager()).current;
-  const qualityGate = useRef(new QualityGate()).current;
+  // Using singleton qualityGate instance
 
   // State
   const [state, setState] = useState<SyncEditorState>({
@@ -72,6 +74,8 @@ export const SyncEditor: React.FC<SyncEditorProps> = ({
     validationResult: null,
     isDirty: false,
   });
+
+  const [videoDuration, setVideoDuration] = useState<number>(0);
 
   const [undoStack, setUndoStack] = useState<SyncEditAction[]>([]);
   const [redoStack, setRedoStack] = useState<SyncEditAction[]>([]);
@@ -120,6 +124,61 @@ export const SyncEditor: React.FC<SyncEditorProps> = ({
   }, []);
 
   /**
+   * Handle video loaded metadata (for duration)
+   */
+  const handleVideoLoaded = useCallback(() => {
+    const video = videoRef.current;
+    if (video && video.duration) {
+      setVideoDuration(video.duration);
+      logger.debug('sync-editor', 'Video duration loaded', { duration: video.duration }, { component: 'SyncEditor', function: 'handleVideoLoaded' });
+    }
+  }, []);
+
+  /**
+   * Monitor video element for duration changes
+   */
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleLoadedMetadata = () => handleVideoLoaded();
+    const handleDurationChange = () => handleVideoLoaded();
+
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('durationchange', handleDurationChange);
+
+    // Check if duration is already available
+    if (video.duration) {
+      setVideoDuration(video.duration);
+    }
+
+    return () => {
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      video.removeEventListener('durationchange', handleDurationChange);
+    };
+  }, [handleVideoLoaded]);
+
+  /**
+   * Jump to specific sync point and seek video
+   */
+  const jumpToSyncPoint = useCallback((index: number) => {
+    if (index < 0 || index >= state.syncPoints.length) return;
+    
+    const syncPoint = state.syncPoints[index];
+    const video = videoRef.current;
+    
+    if (video) {
+      video.currentTime = syncPoint.timestamp;
+      setState(prev => ({ ...prev, selectedPointIndex: index }));
+      logger.debug('sync-editor', 'Jumped to sync point', { 
+        index, 
+        timestamp: syncPoint.timestamp,
+        moveNumber: syncPoint.moveNumber 
+      }, { component: 'SyncEditor', function: 'jumpToSyncPoint' });
+    }
+  }, [state.syncPoints]);
+
+  /**
    * Add new sync point at current video time
    */
   const addSyncPoint = useCallback((timestamp?: number, moveIndex?: number) => {
@@ -128,13 +187,15 @@ export const SyncEditor: React.FC<SyncEditorProps> = ({
     
     if (move === -1 || move >= moves.length) return;
 
-    const newPoint: SyncPoint = {
+    const newPoint: SyncPoint = createSyncPoint({
       timestamp: time,
       moveIndex: move,
       fen: moves[move].fen,
       moveNumber: Math.floor(move / 2) + 1,
       isWhiteMove: move % 2 === 0,
-    };
+      description: `Sync point at ${time.toFixed(1)}s`,
+      tolerance: (editorConfig.maxDriftMs || 300) / 1000, // Convert ms to seconds
+    });
 
     // Check minimum interval
     const tooClose = state.syncPoints.some(point => 
@@ -289,7 +350,6 @@ export const SyncEditor: React.FC<SyncEditorProps> = ({
   const autoSuggestSyncPoints = useCallback(() => {
     if (!editorConfig.enableAutoSuggest || moves.length === 0) return;
 
-    const videoDuration = videoRef.current?.duration || 0;
     if (videoDuration === 0) return;
 
     const suggestedPoints: SyncPoint[] = [];
@@ -299,13 +359,15 @@ export const SyncEditor: React.FC<SyncEditorProps> = ({
       const timestamp = i * interval;
       const moveIndex = Math.min(i, moves.length - 1);
       
-      suggestedPoints.push({
+      suggestedPoints.push(createSyncPoint({
         timestamp,
         moveIndex,
         fen: moves[moveIndex].fen,
         moveNumber: Math.floor(moveIndex / 2) + 1,
         isWhiteMove: moveIndex % 2 === 0,
-      });
+        description: `Auto-suggested sync point ${i + 1}`,
+        tolerance: 0.5,
+      }));
     }
 
     const action: SyncEditAction = {
@@ -316,7 +378,7 @@ export const SyncEditor: React.FC<SyncEditorProps> = ({
     };
 
     updateSyncPoints(suggestedPoints, action);
-  }, [editorConfig.enableAutoSuggest, moves, state.syncPoints, videoRef.current?.duration]);
+  }, [editorConfig.enableAutoSuggest, moves, state.syncPoints, videoDuration]);
 
   /**
    * Import sync points from file
@@ -404,21 +466,22 @@ export const SyncEditor: React.FC<SyncEditorProps> = ({
    */
   const handleTimelineClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     const timeline = timelineRef.current;
-    if (!timeline || !videoRef.current) return;
+    const video = videoRef.current;
+    if (!timeline || !video || videoDuration === 0) return;
 
     const rect = timeline.getBoundingClientRect();
     const clickX = event.clientX - rect.left;
     const percentage = clickX / rect.width;
-    const timestamp = percentage * videoRef.current.duration;
+    const timestamp = percentage * videoDuration;
 
     if (event.shiftKey) {
       // Add sync point
       addSyncPoint(timestamp);
     } else {
       // Seek video
-      videoRef.current.currentTime = timestamp;
+      video.currentTime = timestamp;
     }
-  }, [addSyncPoint]);
+  }, [addSyncPoint, videoDuration]);
 
   /**
    * Keyboard shortcuts
@@ -504,11 +567,21 @@ export const SyncEditor: React.FC<SyncEditorProps> = ({
         {/* Video player */}
         <div className="video-section">
           <VideoPlayer
-            // ref={videoRef} // Removed ref prop
+            ref={videoRef}
             src={videoSrc}
             syncPoints={state.syncPoints}
             currentSyncIndex={state.selectedPointIndex}
             onTimeUpdate={handleVideoTimeUpdate}
+            onSyncPointReached={(syncPoint) => {
+              const index = state.syncPoints.findIndex(p => p.id === syncPoint.id);
+              if (index >= 0) {
+                setState(prev => ({ ...prev, selectedPointIndex: index }));
+              }
+            }}
+            onError={(error) => {
+              qualityGate.recordError(error, 'warning');
+              logger.error('sync-editor', 'Video player error', error, {}, { component: 'SyncEditor', function: 'VideoPlayer' });
+            }}
             config={{
               keyboardShortcuts: true,
               showFrameInfo: true,
@@ -526,7 +599,7 @@ export const SyncEditor: React.FC<SyncEditorProps> = ({
                 <div
                   key={index}
                   className={`sync-point ${index === state.selectedPointIndex ? 'selected' : ''}`}
-                  style={{ left: `${(point.timestamp / (videoRef.current?.duration || 1)) * 100}%` }}
+                  style={{ left: `${videoDuration > 0 ? (point.timestamp / videoDuration) * 100 : 0}%` }}
                   onClick={(e) => {
                     e.stopPropagation();
                     setState(prev => ({ ...prev, selectedPointIndex: index }));
@@ -544,7 +617,7 @@ export const SyncEditor: React.FC<SyncEditorProps> = ({
               <div
                 className="current-time-indicator"
                 style={{ 
-                  left: `${(state.currentVideoTime / (videoRef.current?.duration || 1)) * 100}%` 
+                  left: `${videoDuration > 0 ? (state.currentVideoTime / videoDuration) * 100 : 0}%` 
                 }}
               />
             </div>
@@ -596,7 +669,7 @@ export const SyncEditor: React.FC<SyncEditorProps> = ({
             <div
               key={index}
               className={`sync-point-item ${index === state.selectedPointIndex ? 'selected' : ''}`}
-              onClick={() => setState(prev => ({ ...prev, selectedPointIndex: index }))}
+              onClick={() => jumpToSyncPoint(index)}
             >
               <div className="point-header">
                 <span className="move-number">Move {point.moveNumber}</span>

@@ -8,6 +8,15 @@
  * - Health check reporting
  */
 
+// Import logger with circular dependency guard
+let loggerInstance: any = null;
+try {
+  loggerInstance = require('./Logger').default;
+} catch {
+  // Logger may not be available during bootstrap - use console
+  loggerInstance = null;
+}
+
 export interface PerformanceBudget {
   ttiMs: number;           // Time to Interactive
   stockfishInitMs: number; // Stockfish initialization
@@ -73,20 +82,63 @@ export class QualityGate {
   constructor() {
     this.budget = {
       ttiMs: 2000,        // 2s TTI budget
+      memoryMb: 256,      // 256MB memory budget
+      bundleSizeKb: 1024, // 1MB bundle size budget
+      renderTimeMs: 100,  // 100ms render budget
+      apiResponseMs: 500, // 500ms API budget
+      errorRate: 0.01,    // 1% error rate budget
+      
+      // Engine-specific budgets
       stockfishInitMs: 1500, // 1.5s init budget
       stockfishResponseMs: 200, // 200ms response budget
+      
+      // Video-specific budgets
+      videoLoadTimeMs: 3000, // 3s video load budget
+      seekTimeMs: 500,    // 500ms seek budget
+      
+      // File operation budgets
+      fileUploadMs: 5000, // 5s upload budget
+      
+      // Game validation budgets
+      gameValidationMs: 100, // 100ms validation budget
+      
+      // Sync budgets
       syncDriftMs: 300,   // 0.3s sync drift budget
+      
+      // SRS budgets
       srsRatePerMinute: 60, // 60 cards per 10 minutes = 6/min
+      
+      // Analytics budgets
+      moveAnalysisMs: 50,  // 50ms move analysis budget
+      positionAnalysisMs: 200, // 200ms position analysis budget
+      
+      // Engine pool budgets
+      enginePoolInitMs: 2000, // 2s engine pool init budget
+      
+      // System budgets
+      engineSystemInitMs: 3000, // 3s engine system init budget
     };
 
     this.metrics = {
       performance: {
-        tti: 0,
-        stockfishInit: 0,
-        stockfishResponse: 0,
-        averageSyncDrift: 0,
-        srsReviewRate: 0,
-        lastMeasured: new Date(),
+        ttiMs: 0,
+        memoryMb: 0,
+        bundleSizeKb: 0,
+        renderTimeMs: 0,
+        apiResponseMs: 0,
+        errorRate: 0,
+        stockfishInitMs: 0,
+        stockfishResponseMs: 0,
+        videoLoadTimeMs: 0,
+        seekTimeMs: 0,
+        fileUploadMs: 0,
+        gameValidationMs: 0,
+        syncDriftMs: 0,
+        srsRatePerMinute: 0,
+        moveAnalysisMs: 0,
+        positionAnalysisMs: 0,
+        enginePoolInitMs: 0,
+        engineSystemInitMs: 0,
       },
       errors: {
         total: 0,
@@ -402,7 +454,11 @@ export class QualityGate {
       try {
         listener(this.getMetrics());
       } catch (error) {
-        console.error('Quality gate listener error:', error);
+        if (loggerInstance) {
+          loggerInstance.error('performance', 'Quality gate listener error', error, {}, { component: 'QualityGate', function: 'notifyListeners' });
+        } else {
+          console.error('Quality gate listener error:', error);
+        }
       }
     }
   }
@@ -415,7 +471,11 @@ export class QualityGate {
         this.featureFlags = { ...this.featureFlags, ...parsed };
       }
     } catch (error) {
-      console.warn('Failed to load feature flags:', error);
+      if (loggerInstance) {
+        loggerInstance.warn('performance', 'Feature flags loading failed', { error: error.message }, { component: 'QualityGate', function: 'loadFeatureFlags' });
+      } else {
+        console.warn('Failed to load feature flags:', error);
+      }
     }
   }
 
@@ -423,7 +483,11 @@ export class QualityGate {
     try {
       localStorage.setItem('chess-trainer-feature-flags', JSON.stringify(this.featureFlags));
     } catch (error) {
-      console.warn('Failed to save feature flags:', error);
+      if (loggerInstance) {
+        loggerInstance.warn('performance', 'Feature flags saving failed', { error: error.message }, { component: 'QualityGate', function: 'saveFeatureFlags' });
+      } else {
+        console.warn('Failed to save feature flags:', error);
+      }
     }
   }
 

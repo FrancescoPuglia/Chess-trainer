@@ -1,0 +1,190 @@
+# ♔ CHESS TRAINER ENTERPRISE - DOCKER COMPOSE CONFIGURATION
+# Production-ready multi-service deployment
+
+version: '3.8'
+
+services:
+  # Main Application
+  chess-trainer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: chess-trainer-app
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      - NODE_ENV=production
+    networks:
+      - chess-trainer-network
+    volumes:
+      - ./nginx-default.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.chess-trainer.rule=Host(`chesstrainer.com`)"
+      - "traefik.http.routers.chess-trainer.tls=true"
+      - "traefik.http.routers.chess-trainer.tls.certresolver=letsencrypt"
+
+  # Reverse Proxy / Load Balancer
+  traefik:
+    image: traefik:v3.0
+    container_name: chess-trainer-proxy
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "8080:8080" # Traefik dashboard
+    command:
+      - --api.dashboard=true
+      - --api.debug=true
+      - --entrypoints.websecure.address=:443
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.email=admin@chesstrainer.com
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --log.level=INFO
+      - --accesslog=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-ssl-certs:/letsencrypt
+    networks:
+      - chess-trainer-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.chesstrainer.com`)"
+      - "traefik.http.routers.traefik.tls=true"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+      - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+
+  # Redis for Caching and Session Management
+  redis:
+    image: redis:7-alpine
+    container_name: chess-trainer-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - chess-trainer-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # Monitoring with Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: chess-trainer-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - chess-trainer-network
+
+  # Grafana for Metrics Visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: chess-trainer-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - chess-trainer-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`metrics.chesstrainer.com`)"
+      - "traefik.http.routers.grafana.tls=true"
+      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
+
+  # Log Management with Loki
+  loki:
+    image: grafana/loki:latest
+    container_name: chess-trainer-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - chess-trainer-network
+
+  # Log Collection with Promtail
+  promtail:
+    image: grafana/promtail:latest
+    container_name: chess-trainer-promtail
+    restart: unless-stopped
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./promtail.yml:/etc/promtail/config.yml:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - chess-trainer-network
+
+  # Node Exporter for System Metrics
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: chess-trainer-node-exporter
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - chess-trainer-network
+
+networks:
+  chess-trainer-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  traefik-ssl-certs:
+    driver: local
+  redis-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  loki-data:
+    driver: local

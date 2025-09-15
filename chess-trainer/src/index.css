@@ -5,9 +5,9 @@
  * for the chess training application.
  */
 
-@import 'tailwindcss/base';
-@import 'tailwindcss/components';
-@import 'tailwindcss/utilities';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* Base styles and CSS reset */
 @layer base {
