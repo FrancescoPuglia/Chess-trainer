@@ -31,7 +31,8 @@
       "Bash(chmod:*)",
       "Bash(./scripts/verify-github-pages.sh:*)",
       "Bash(VITE_GITHUB_PAGES=true npm run build)",
-      "Bash(VITE_GITHUB_PAGES=true npx vite build --mode production)"
+      "Bash(VITE_GITHUB_PAGES=true npx vite build --mode production)",
+      "Bash(cp:*)"
     ],
     "deny": []
   }
