@@ -102,6 +102,12 @@ jobs:
           
           echo "✅ Build validation successful"
 
+      - name: 🚫 Disable Jekyll Processing
+        working-directory: chess-trainer
+        run: |
+          touch dist/.nojekyll
+          echo "Disabled Jekyll processing for static site"
+      
       - name: 📤 Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:
