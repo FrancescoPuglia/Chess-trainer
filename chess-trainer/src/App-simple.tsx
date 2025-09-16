@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ChessgroundBoard } from './components/ChessgroundBoard-simple';
+import { TestCSS } from './test-css';
 import { Chess } from 'chess.js';
 
 // Simple types
@@ -88,6 +89,13 @@ function App() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
+        
+        {/* CSS Test Section - MODALITÀ CERTOSINO DEBUG */}
+        <div className="mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded">
+          <h3 className="text-lg font-semibold mb-4">🔍 CSS Debug Test (MODALITÀ CERTOSINO)</h3>
+          <TestCSS />
+        </div>
+
         {mode === 'board' && (
           <div className="max-w-4xl mx-auto">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

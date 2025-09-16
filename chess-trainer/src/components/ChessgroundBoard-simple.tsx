@@ -88,6 +88,24 @@ export function ChessgroundBoard({
     };
 
     chessgroundRef.current = Chessground(boardRef.current, config);
+    
+    // DEBUG: Verify Chessground DOM structure  
+    console.log('Chessground initialized, DOM structure:');
+    console.log('boardRef.current:', boardRef.current);
+    console.log('chessgroundRef.current:', chessgroundRef.current);
+    
+    // Check if DOM elements are created
+    setTimeout(() => {
+      const cgWrap = boardRef.current?.querySelector('.cg-wrap');
+      const cgBoard = boardRef.current?.querySelector('cg-board');
+      const pieces = boardRef.current?.querySelectorAll('piece');
+      
+      console.log('DOM Check:');
+      console.log('- .cg-wrap found:', !!cgWrap);
+      console.log('- cg-board found:', !!cgBoard);
+      console.log('- pieces found:', pieces.length);
+      console.log('- boardRef innerHTML length:', boardRef.current?.innerHTML.length);
+    }, 100);
 
     return () => {
       chessgroundRef.current?.destroy();
