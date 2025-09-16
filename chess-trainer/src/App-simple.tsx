@@ -99,6 +99,7 @@ function App() {
                 <div className="flex justify-center mb-4">
                   <ChessgroundBoard
                     fen={fen}
+                    chessInstance={chess}
                     orientation="white"
                     interactive={true}
                     coordinates={true}

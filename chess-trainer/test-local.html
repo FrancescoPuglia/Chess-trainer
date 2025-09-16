@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Trainer Test</title>
+    <link rel="stylesheet" href="dist/assets/main-xObHBVZC.css">
+</head>
+<body>
+    <div id="root"></div>
+    <script>
+        console.log("=== CHESS TRAINER DEBUG TEST ===");
+        
+        // Test 1: CSS Loading
+        const cssLoaded = document.querySelector('link[href*="main-xObHBVZC.css"]');
+        console.log("CSS File Found:", cssLoaded ? "✅" : "❌");
+        
+        // Test 2: Root element
+        const rootElement = document.getElementById('root');
+        console.log("Root Element:", rootElement ? "✅" : "❌");
+        
+        // Monitor console errors
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        let errors = [];
+        let warnings = [];
+        
+        console.error = function(...args) {
+            errors.push(args);
+            originalError.apply(console, args);
+        };
+        
+        console.warn = function(...args) {
+            warnings.push(args);
+            originalWarn.apply(console, args);
+        };
+        
+        // Test 3: Load main JS and monitor
+        setTimeout(() => {
+            console.log("=== ERROR SUMMARY ===");
+            console.log("Total Errors:", errors.length);
+            console.log("Total Warnings:", warnings.length);
+            
+            errors.forEach((error, i) => {
+                console.log(`Error ${i+1}:`, error);
+            });
+            
+            warnings.forEach((warning, i) => {
+                console.log(`Warning ${i+1}:`, warning);
+            });
+        }, 3000);
+    </script>
+    <script type="module" src="dist/assets/main-CXkqVbJ1.js"></script>
+</body>
+</html>

@@ -7,8 +7,11 @@ import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.brown.css';
 import 'chessground/assets/chessground.cburnett.css';
 
+import { Chess } from 'chess.js';
+
 interface ChessgroundBoardProps {
   fen: string;
+  chessInstance: Chess; // Aggiunta chess.js instance
   orientation: 'white' | 'black';
   interactive?: boolean;
   coordinates?: boolean;
@@ -21,6 +24,7 @@ interface ChessgroundBoardProps {
 
 export function ChessgroundBoard({
   fen,
+  chessInstance,
   orientation = 'white',
   interactive = true,
   coordinates = true,
@@ -33,6 +37,34 @@ export function ChessgroundBoard({
   const boardRef = useRef<HTMLDivElement>(null);
   const chessgroundRef = useRef<ChessgroundApi | null>(null);
 
+  // Generate legal moves for Chessground
+  const generateDests = () => {
+    const dests = new Map();
+    if (!chessInstance) return dests;
+
+    try {
+      // Get all legal moves from chess.js
+      const moves = chessInstance.moves({ verbose: true });
+      
+      // Group moves by source square
+      moves.forEach((move) => {
+        const from = move.from;
+        const to = move.to;
+        
+        if (!dests.has(from)) {
+          dests.set(from, []);
+        }
+        dests.get(from).push(to);
+      });
+      
+      console.log('Generated dests for', dests.size, 'squares');
+      return dests;
+    } catch (error) {
+      console.error('Error generating dests:', error);
+      return dests;
+    }
+  };
+
   // Initialize chessground
   useEffect(() => {
     if (!boardRef.current) return;
@@ -43,7 +75,7 @@ export function ChessgroundBoard({
       movable: {
         free: false,
         color: interactive ? 'both' : undefined,
-        dests: new Map(),
+        dests: generateDests(),
       },
       events: {
         move: (orig: string, dest: string) => {
@@ -60,9 +92,9 @@ export function ChessgroundBoard({
     return () => {
       chessgroundRef.current?.destroy();
     };
-  }, []);
+  }, [chessInstance]);
 
-  // Update position when FEN changes
+  // Update position and legal moves when FEN changes
   useEffect(() => {
     if (chessgroundRef.current && fen) {
       try {
@@ -89,12 +121,18 @@ export function ChessgroundBoard({
           }
         }
 
-        chessgroundRef.current.set({ fen: pieces });
+        console.log('Updating board with', pieces.size, 'pieces');
+        chessgroundRef.current.set({ 
+          pieces,
+          movable: {
+            dests: generateDests()
+          }
+        });
       } catch (error) {
         console.error('Error parsing FEN:', error);
       }
     }
-  }, [fen]);
+  }, [fen, chessInstance]);
 
   // Update orientation
   useEffect(() => {
