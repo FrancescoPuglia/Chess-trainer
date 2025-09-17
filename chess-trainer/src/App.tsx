@@ -26,7 +26,12 @@ type AppMode = 'board-demo' | 'video-study';
 function App() {
   // Core state
   const [gameAPI] = useState<IGameAPI>(() => createGameAPI());
-  const [position, setPosition] = useState<GamePosition>(() => gameAPI.getPosition());
+  const [position, setPosition] = useState<GamePosition>(() => {
+    const pos = gameAPI.getPosition();
+    console.log('🚀 INITIAL POSITION:', pos);
+    console.log('🚀 INITIAL FEN:', pos.fen);
+    return pos;
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [healthScore, setHealthScore] = useState(100);

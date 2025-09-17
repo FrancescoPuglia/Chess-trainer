@@ -10,6 +10,7 @@
     "build:production": "NODE_ENV=production npm run build",
     "build:staging": "NODE_ENV=staging npm run build",
     "build:github-pages": "npx vite build --config vite.config.simple.ts --mode production && cp dist/index-simple.html dist/index.html && cp dist/index.html dist/404.html && touch dist/.nojekyll",
+    "build:clean": "npx vite build --config vite.config.production.ts --mode production && cp dist/index-production.html dist/index.html && cp dist/index.html dist/404.html && touch dist/.nojekyll",
     "lint": "eslint . --ext ts,tsx",
     "lint:fix": "eslint . --ext ts,tsx --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,json}\"",

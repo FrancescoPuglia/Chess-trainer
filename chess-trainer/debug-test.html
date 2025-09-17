@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chessground FEN Debug Test</title>
+    <link rel="stylesheet" href="https://unpkg.com/chessground@8/assets/chessground.base.css">
+    <link rel="stylesheet" href="https://unpkg.com/chessground@8/assets/chessground.brown.css">
+    <link rel="stylesheet" href="https://unpkg.com/chessground@8/assets/chessground.cburnett.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .chessground-container {
+            width: 400px;
+            height: 400px;
+            margin: 20px auto;
+        }
+        .debug-info {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Chessground FEN Debug Test</h1>
+    
+    <div class="chessground-container" id="board"></div>
+    
+    <div class="debug-info" id="debug"></div>
+
+    <script src="https://unpkg.com/chessground@8/dist/chessground.min.js"></script>
+    <script>
+        const debugEl = document.getElementById('debug');
+        
+        function log(message) {
+            console.log(message);
+            debugEl.textContent += message + '\n';
+        }
+        
+        // Standard starting position FEN
+        const startingFEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+        
+        log('🚀 Starting FEN: ' + startingFEN);
+        
+        // Parse FEN manually
+        function parseFenToPieces(fen) {
+            const pieces = new Map();
+            
+            log('🧩 Parsing FEN: ' + fen);
+            
+            try {
+                const [position] = fen.split(' ');
+                const ranks = position.split('/');
+                
+                log('📋 Ranks: ' + JSON.stringify(ranks));
+                
+                for (let rank = 0; rank < 8; rank++) {
+                    const rankStr = ranks[rank];
+                    let file = 0;
+                    
+                    log(`⚡ RANK ${rank + 1}: "${rankStr}"`);
+                    
+                    for (let i = 0; i < rankStr.length; i++) {
+                        const char = rankStr[i];
+                        
+                        if (char >= '1' && char <= '8') {
+                            file += parseInt(char);
+                            log(`  📍 Skip ${char} empty squares, file now: ${file}`);
+                        } else {
+                            const square = String.fromCharCode(97 + file) + (8 - rank);
+                            const color = char === char.toLowerCase() ? 'black' : 'white';
+                            const roleMappings = {
+                                'p': 'pawn',
+                                'n': 'knight', 
+                                'b': 'bishop',
+                                'r': 'rook',
+                                'q': 'queen',
+                                'k': 'king'
+                            };
+                            const role = roleMappings[char.toLowerCase()];
+                            
+                            log(`  🔸 PIECE: ${char} -> ${role} ${color} on ${square}`);
+                            
+                            if (role) {
+                                pieces.set(square, { color, role });
+                            } else {
+                                log(`❌ UNKNOWN PIECE: ${char}`);
+                            }
+                            
+                            file++;
+                        }
+                    }
+                }
+                
+                log('🎯 FINAL PIECES COUNT: ' + pieces.size);
+                log('🎯 PIECES MAP: ' + JSON.stringify(Array.from(pieces.entries())));
+                
+            } catch (error) {
+                log('❌ FEN PARSING ERROR: ' + error.message);
+            }
+            
+            return pieces;
+        }
+        
+        // Test parsing
+        const pieces = parseFenToPieces(startingFEN);
+        
+        // Initialize chessground
+        const boardEl = document.getElementById('board');
+        const cg = Chessground(boardEl, {
+            coordinates: true,
+            orientation: 'white'
+        });
+        
+        log('🎮 Setting pieces on chessground...');
+        cg.setPieces(pieces);
+        
+        log('✅ Test complete!');
+        
+        // Also try direct FEN setting (if supported)
+        setTimeout(() => {
+            log('\n🔄 TRYING DIRECT FEN METHOD...');
+            try {
+                cg.set({ fen: startingFEN });
+                log('✅ Direct FEN method worked');
+            } catch (e) {
+                log('❌ Direct FEN method failed: ' + e.message);
+            }
+        }, 2000);
+        
+    </script>
+</body>
+</html>

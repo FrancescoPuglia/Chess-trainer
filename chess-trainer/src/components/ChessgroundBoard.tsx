@@ -72,13 +72,19 @@ interface ChessgroundBoardState {
 const parseFenToPieces = (fen: string): Map<ChessgroundKey, Piece> => {
   const pieces = new Map<ChessgroundKey, Piece>();
   
+  console.log('🧩 PARSING FEN:', fen);
+  
   try {
     const [position] = fen.split(' ');
     const ranks = position.split('/');
     
+    console.log('📋 RANKS:', ranks);
+    
     for (let rank = 0; rank < 8; rank++) {
       const rankStr = ranks[rank];
       let file = 0;
+      
+      console.log(`⚡ RANK ${rank + 1}: "${rankStr}"`);
       
       for (let i = 0; i < rankStr.length; i++) {
         const char = rankStr[i];
@@ -86,6 +92,7 @@ const parseFenToPieces = (fen: string): Map<ChessgroundKey, Piece> => {
         if (char >= '1' && char <= '8') {
           // Empty squares
           file += parseInt(char);
+          console.log(`  📍 Skip ${char} empty squares, file now: ${file}`);
         } else {
           // Piece
           const square = `${String.fromCharCode(97 + file)}${8 - rank}` as ChessgroundKey;
@@ -100,11 +107,15 @@ const parseFenToPieces = (fen: string): Map<ChessgroundKey, Piece> => {
           };
           const role = roleMappings[char.toLowerCase()];
           
+          console.log(`  🔸 PIECE: ${char} -> ${role} ${color} on ${square}`);
+          
           if (role) {
             pieces.set(square, {
               color,
               role,
             });
+          } else {
+            console.error(`❌ UNKNOWN PIECE: ${char}`);
           }
           
           file++;
@@ -112,7 +123,10 @@ const parseFenToPieces = (fen: string): Map<ChessgroundKey, Piece> => {
       }
     }
     
+    console.log('🎯 FINAL PIECES COUNT:', pieces.size);
+    
   } catch (error) {
+    console.error('❌ FEN PARSING ERROR:', error);
     logger.error('game', 'FEN parsing failed - invalid position', error as Error, { fen }, { component: 'ChessgroundBoard', function: 'fenToPosition' });
   }
   
@@ -234,15 +248,72 @@ export const ChessgroundBoard: React.FC<ChessgroundBoardProps> = React.memo(({
       const cg = Chessground(boardRef.current, chessgroundConfig);
       chessgroundRef.current = cg;
       
-      // Set initial position using pieces map parsed from FEN
-      const pieces = parseFenToPieces(fen);
-      cg.setPieces(pieces);
+      // SIMPLE TEST: Try both methods
+      console.log('🔍 INIT FEN:', fen);
       
-      // Set additional configuration
-      cg.set({
-        check: showCheck && isInCheckFromFen(fen),
-        turnColor: fen.split(' ')[1] === 'w' ? 'white' : 'black',
-      });
+      // Method 1: Parse FEN manually and use setPieces
+      const pieces = parseFenToPieces(fen);
+      console.log('🎯 PARSED PIECES:', pieces.size, 'pieces found');
+      
+      if (pieces.size > 0) {
+        console.log('📝 Trying setPieces method...');
+        cg.setPieces(pieces);
+      }
+      
+      // Method 2: Try direct FEN if chessground supports it
+      try {
+        console.log('📝 Trying direct FEN method...');
+        cg.set({
+          fen: fen,
+          check: showCheck && isInCheckFromFen(fen),
+          turnColor: fen.split(' ')[1] === 'w' ? 'white' : 'black',
+        });
+      } catch (error) {
+        console.warn('⚠️ Direct FEN method failed:', error);
+      }
+      
+      // Method 3: Force reset to starting position for testing
+      if (fen.includes('rnbqkbnr/pppppppp')) {
+        console.log('📝 Forcing starting position...');
+        const startingPieces = new Map([
+          ['a1', { color: 'white', role: 'rook' }],
+          ['b1', { color: 'white', role: 'knight' }],
+          ['c1', { color: 'white', role: 'bishop' }],
+          ['d1', { color: 'white', role: 'queen' }],
+          ['e1', { color: 'white', role: 'king' }],
+          ['f1', { color: 'white', role: 'bishop' }],
+          ['g1', { color: 'white', role: 'knight' }],
+          ['h1', { color: 'white', role: 'rook' }],
+          ['a2', { color: 'white', role: 'pawn' }],
+          ['b2', { color: 'white', role: 'pawn' }],
+          ['c2', { color: 'white', role: 'pawn' }],
+          ['d2', { color: 'white', role: 'pawn' }],
+          ['e2', { color: 'white', role: 'pawn' }],
+          ['f2', { color: 'white', role: 'pawn' }],
+          ['g2', { color: 'white', role: 'pawn' }],
+          ['h2', { color: 'white', role: 'pawn' }],
+          ['a8', { color: 'black', role: 'rook' }],
+          ['b8', { color: 'black', role: 'knight' }],
+          ['c8', { color: 'black', role: 'bishop' }],
+          ['d8', { color: 'black', role: 'queen' }],
+          ['e8', { color: 'black', role: 'king' }],
+          ['f8', { color: 'black', role: 'bishop' }],
+          ['g8', { color: 'black', role: 'knight' }],
+          ['h8', { color: 'black', role: 'rook' }],
+          ['a7', { color: 'black', role: 'pawn' }],
+          ['b7', { color: 'black', role: 'pawn' }],
+          ['c7', { color: 'black', role: 'pawn' }],
+          ['d7', { color: 'black', role: 'pawn' }],
+          ['e7', { color: 'black', role: 'pawn' }],
+          ['f7', { color: 'black', role: 'pawn' }],
+          ['g7', { color: 'black', role: 'pawn' }],
+          ['h7', { color: 'black', role: 'pawn' }]
+        ]);
+        cg.setPieces(startingPieces);
+        console.log('✅ Forced 32 pieces manually');
+      }
+      
+      console.log('✅ Chessground initialization complete');
       
       setState(prev => ({
         ...prev,
