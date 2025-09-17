@@ -180,51 +180,60 @@ export const ChessgroundBoard: React.FC<ChessgroundBoardProps> = React.memo(({
   /**
    * Memoized chessground configuration
    */
-  const chessgroundConfig = useMemo((): ChessgroundConfig => ({
-    orientation,
-    viewOnly: viewOnly || !interactive,
-    coordinates,
+  const chessgroundConfig = useMemo((): ChessgroundConfig => {
+    // Parse pieces from FEN for initial position
+    const pieces = parseFenToPieces(fen);
     
-    // Animation settings
-    animation: {
-      enabled: enableSmoothAnimation,
-      duration: enableSmoothAnimation ? 150 : 0,
-    },
-    
-    // Move settings
-    movable: {
-      free: false,
-      color: interactive && !viewOnly ? 'both' : undefined,
-      showDests: interactive && showDestinations,
-      events: {
-        after: (orig, dest, metadata) => {
-          onMove?.(orig, dest, metadata);
+    return {
+      orientation,
+      viewOnly: viewOnly || !interactive,
+      coordinates,
+      
+      // Set pieces directly in config
+      pieces,
+      
+      // Animation settings
+      animation: {
+        enabled: enableSmoothAnimation,
+        duration: enableSmoothAnimation ? 150 : 0,
+      },
+      
+      // Move settings
+      movable: {
+        free: false,
+        color: interactive && !viewOnly ? 'both' : undefined,
+        showDests: interactive && showDestinations,
+        events: {
+          after: (orig, dest, metadata) => {
+            onMove?.(orig, dest, metadata);
+          },
         },
       },
-    },
-    
-    // Selection settings
-    selectable: {
-      enabled: interactive && !viewOnly,
-    },
-    
-    // Visual settings
-    premovable: {
-      enabled: false, // Disabled for video study sessions
-    },
-    
-    highlight: {
-      lastMove: showLastMove,
-      check: showCheck,
-    },
-    
-    // Events
-    events: {
-      select: (square) => {
-        onSelect?.(square);
+      
+      // Selection settings
+      selectable: {
+        enabled: interactive && !viewOnly,
       },
-    },
-  }), [
+      
+      // Visual settings
+      premovable: {
+        enabled: false, // Disabled for video study sessions
+      },
+      
+      highlight: {
+        lastMove: showLastMove,
+        check: showCheck,
+      },
+      
+      // Events
+      events: {
+        select: (square) => {
+          onSelect?.(square);
+        },
+      },
+    };
+  }, [
+    fen, // Add fen as dependency
     orientation,
     viewOnly,
     interactive,
@@ -244,76 +253,14 @@ export const ChessgroundBoard: React.FC<ChessgroundBoardProps> = React.memo(({
     if (!boardRef.current) return;
     
     try {
-      // Create chessground instance
+      // Create chessground instance with pieces in config
+      console.log('🔍 INIT FEN:', fen);
+      console.log('🔍 CONFIG PIECES:', chessgroundConfig.pieces?.size);
+      
       const cg = Chessground(boardRef.current, chessgroundConfig);
       chessgroundRef.current = cg;
       
-      // SIMPLE TEST: Try both methods
-      console.log('🔍 INIT FEN:', fen);
-      
-      // Method 1: Parse FEN manually and use setPieces
-      const pieces = parseFenToPieces(fen);
-      console.log('🎯 PARSED PIECES:', pieces.size, 'pieces found');
-      
-      if (pieces.size > 0) {
-        console.log('📝 Trying setPieces method...');
-        cg.setPieces(pieces);
-      }
-      
-      // Method 2: Try direct FEN if chessground supports it
-      try {
-        console.log('📝 Trying direct FEN method...');
-        cg.set({
-          fen: fen,
-          check: showCheck && isInCheckFromFen(fen),
-          turnColor: fen.split(' ')[1] === 'w' ? 'white' : 'black',
-        });
-      } catch (error) {
-        console.warn('⚠️ Direct FEN method failed:', error);
-      }
-      
-      // Method 3: Force reset to starting position for testing
-      if (fen.includes('rnbqkbnr/pppppppp')) {
-        console.log('📝 Forcing starting position...');
-        const startingPieces = new Map([
-          ['a1', { color: 'white', role: 'rook' }],
-          ['b1', { color: 'white', role: 'knight' }],
-          ['c1', { color: 'white', role: 'bishop' }],
-          ['d1', { color: 'white', role: 'queen' }],
-          ['e1', { color: 'white', role: 'king' }],
-          ['f1', { color: 'white', role: 'bishop' }],
-          ['g1', { color: 'white', role: 'knight' }],
-          ['h1', { color: 'white', role: 'rook' }],
-          ['a2', { color: 'white', role: 'pawn' }],
-          ['b2', { color: 'white', role: 'pawn' }],
-          ['c2', { color: 'white', role: 'pawn' }],
-          ['d2', { color: 'white', role: 'pawn' }],
-          ['e2', { color: 'white', role: 'pawn' }],
-          ['f2', { color: 'white', role: 'pawn' }],
-          ['g2', { color: 'white', role: 'pawn' }],
-          ['h2', { color: 'white', role: 'pawn' }],
-          ['a8', { color: 'black', role: 'rook' }],
-          ['b8', { color: 'black', role: 'knight' }],
-          ['c8', { color: 'black', role: 'bishop' }],
-          ['d8', { color: 'black', role: 'queen' }],
-          ['e8', { color: 'black', role: 'king' }],
-          ['f8', { color: 'black', role: 'bishop' }],
-          ['g8', { color: 'black', role: 'knight' }],
-          ['h8', { color: 'black', role: 'rook' }],
-          ['a7', { color: 'black', role: 'pawn' }],
-          ['b7', { color: 'black', role: 'pawn' }],
-          ['c7', { color: 'black', role: 'pawn' }],
-          ['d7', { color: 'black', role: 'pawn' }],
-          ['e7', { color: 'black', role: 'pawn' }],
-          ['f7', { color: 'black', role: 'pawn' }],
-          ['g7', { color: 'black', role: 'pawn' }],
-          ['h7', { color: 'black', role: 'pawn' }]
-        ]);
-        cg.setPieces(startingPieces);
-        console.log('✅ Forced 32 pieces manually');
-      }
-      
-      console.log('✅ Chessground initialization complete');
+      console.log('✅ Chessground created with pieces in config');
       
       setState(prev => ({
         ...prev,
