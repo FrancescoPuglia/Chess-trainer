@@ -72,19 +72,13 @@ interface ChessgroundBoardState {
 const parseFenToPieces = (fen: string): Map<ChessgroundKey, Piece> => {
   const pieces = new Map<ChessgroundKey, Piece>();
   
-  console.log('🧩 PARSING FEN:', fen);
-  
   try {
     const [position] = fen.split(' ');
     const ranks = position.split('/');
     
-    console.log('📋 RANKS:', ranks);
-    
     for (let rank = 0; rank < 8; rank++) {
       const rankStr = ranks[rank];
       let file = 0;
-      
-      console.log(`⚡ RANK ${rank + 1}: "${rankStr}"`);
       
       for (let i = 0; i < rankStr.length; i++) {
         const char = rankStr[i];
@@ -92,7 +86,6 @@ const parseFenToPieces = (fen: string): Map<ChessgroundKey, Piece> => {
         if (char >= '1' && char <= '8') {
           // Empty squares
           file += parseInt(char);
-          console.log(`  📍 Skip ${char} empty squares, file now: ${file}`);
         } else {
           // Piece
           const square = `${String.fromCharCode(97 + file)}${8 - rank}` as ChessgroundKey;
@@ -107,15 +100,11 @@ const parseFenToPieces = (fen: string): Map<ChessgroundKey, Piece> => {
           };
           const role = roleMappings[char.toLowerCase()];
           
-          console.log(`  🔸 PIECE: ${char} -> ${role} ${color} on ${square}`);
-          
           if (role) {
             pieces.set(square, {
               color,
               role,
             });
-          } else {
-            console.error(`❌ UNKNOWN PIECE: ${char}`);
           }
           
           file++;
@@ -123,10 +112,7 @@ const parseFenToPieces = (fen: string): Map<ChessgroundKey, Piece> => {
       }
     }
     
-    console.log('🎯 FINAL PIECES COUNT:', pieces.size);
-    
   } catch (error) {
-    console.error('❌ FEN PARSING ERROR:', error);
     logger.error('game', 'FEN parsing failed - invalid position', error as Error, { fen }, { component: 'ChessgroundBoard', function: 'fenToPosition' });
   }
   
@@ -244,44 +230,18 @@ export const ChessgroundBoard: React.FC<ChessgroundBoardProps> = React.memo(({
     if (!boardRef.current) return;
     
     try {
-      // Create chessground instance
-      console.log('🔍 INIT FEN:', fen);
-      
+      // Create chessground instance with proper FEN setup
       const cg = Chessground(boardRef.current, chessgroundConfig);
       chessgroundRef.current = cg;
       
-      // FORCE FIX: Set pieces with forced layout update
-      console.log('🎯 FORCING PIECES AND LAYOUT...');
-      
-      // Method 1: Standard pieces from FEN
+      // Set initial position from FEN
       const pieces = parseFenToPieces(fen);
-      console.log('📋 PIECES PARSED:', pieces.size);
+      cg.setPieces(pieces);
       
-      // Method 2: Force CSS recalculation
-      const boardElement = boardRef.current;
-      boardElement.style.display = 'none';
-      boardElement.offsetHeight; // Force reflow
-      boardElement.style.display = '';
-      
-      // Method 3: Set pieces after DOM is stable
-      setTimeout(() => {
-        console.log('⏰ DELAYED PIECE SETTING...');
-        cg.setPieces(pieces);
-        
-        // Force layout recalculation
-        cg.redrawAll();
-        
-        // Another attempt after CSS settling
-        setTimeout(() => {
-          console.log('⏰ FINAL PIECE SETTING...');
-          cg.setPieces(pieces);
-          cg.redrawAll();
-          
-          console.log('✅ ALL METHODS APPLIED');
-        }, 200);
-      }, 100);
-      
-      console.log('✅ Chessground initialized');
+      // Set turn color
+      cg.set({
+        turnColor: fen.split(' ')[1] === 'w' ? 'white' : 'black'
+      });
       
       setState(prev => ({
         ...prev,
@@ -432,35 +392,10 @@ export const ChessgroundBoard: React.FC<ChessgroundBoardProps> = React.memo(({
       className={`chessground-container ${className}`}
       style={boardStyle}
     >
-      <style>{`
-        /* FORCE PIECE POSITIONING FIX */
-        .chessground-board-element piece {
-          position: absolute !important;
-          transition: transform 0.2s ease-out !important;
-        }
-        
-        /* Force board layout */
-        .chessground-board-element cg-container {
-          position: relative !important;
-          display: block !important;
-        }
-        
-        .chessground-board-element cg-board {
-          position: relative !important;
-          width: 100% !important;
-          height: 100% !important;
-        }
-        
-        /* Ensure proper square positioning */
-        .chessground-board-element cg-board square {
-          position: absolute !important;
-        }
-      `}</style>
-      
       <div 
         ref={boardRef}
         className="chessground-board-element"
-        style={{ width: '100%', height: '100%', position: 'relative' }}
+        style={{ width: '100%', height: '100%' }}
       />
       
       {/* Development info */}
