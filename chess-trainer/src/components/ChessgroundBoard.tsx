@@ -100,17 +100,20 @@ const parseFenToPieces = (fen: string): Map<ChessgroundKey, Piece> => {
           };
           const role = roleMappings[char.toLowerCase()];
           
-          pieces.set(square, {
-            color,
-            role,
-          });
+          if (role) {
+            pieces.set(square, {
+              color,
+              role,
+            });
+          }
           
           file++;
         }
       }
     }
+    
   } catch (error) {
-    logger.error('game', 'FEN parsing failed - invalid position', error, { fen }, { component: 'ChessgroundBoard', function: 'fenToPosition' });
+    logger.error('game', 'FEN parsing failed - invalid position', error as Error, { fen }, { component: 'ChessgroundBoard', function: 'fenToPosition' });
   }
   
   return pieces;
@@ -231,10 +234,14 @@ export const ChessgroundBoard: React.FC<ChessgroundBoardProps> = React.memo(({
       const cg = Chessground(boardRef.current, chessgroundConfig);
       chessgroundRef.current = cg;
       
-      // Set initial position
+      // Set initial position using pieces map parsed from FEN
+      const pieces = parseFenToPieces(fen);
+      cg.setPieces(pieces);
+      
+      // Set additional configuration
       cg.set({
-        fen,
         check: showCheck && isInCheckFromFen(fen),
+        turnColor: fen.split(' ')[1] === 'w' ? 'white' : 'black',
       });
       
       setState(prev => ({
@@ -272,9 +279,11 @@ export const ChessgroundBoard: React.FC<ChessgroundBoardProps> = React.memo(({
     try {
       const isInCheck = showCheck && isInCheckFromFen(newFen);
       
-      // Update chessground with new position
+      // Update chessground with new position using pieces map
+      const pieces = parseFenToPieces(newFen);
+      chessgroundRef.current.setPieces(pieces);
+      
       chessgroundRef.current.set({
-        fen: newFen,
         check: isInCheck,
         turnColor: newFen.split(' ')[1] === 'w' ? 'white' : 'black',
       });
