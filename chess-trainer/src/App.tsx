@@ -9,6 +9,7 @@
 import { useState, useEffect } from 'react';
 
 import { ChessgroundBoard } from './components/ChessgroundBoard';
+import { SimpleChessBoard } from './components/SimpleChessBoard';
 import VideoStudySession from './components/VideoStudySession';
 import ErrorBoundary from './components/ErrorBoundary';
 import { createGameAPI, type IGameAPI } from './core/game-api';
@@ -534,11 +535,19 @@ function App() {
         {appMode === 'board-demo' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
-          {/* Left Panel - Chessboard */}
+          {/* Left Panel - Chessboards COMPARISON */}
           <div className="space-y-4">
+            
+            {/* TEST BOARD */}
+            <div className="bg-red-50 rounded-lg shadow-sm p-6 border-2 border-red-200">
+              <h2 className="text-lg font-semibold text-red-800 mb-4">🔬 TEST: Simple Board (Should show 32 pieces)</h2>
+              <SimpleChessBoard width={400} height={400} />
+            </div>
+            
+            {/* ORIGINAL BOARD */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-gray-800">Chess Board</h2>
+                <h2 className="text-lg font-semibold text-gray-800">❌ PROBLEMATIC: Original Board</h2>
                 <div className="flex items-center space-x-2 text-sm text-gray-600">
                   <span>Turn:</span>
                   <span className={`font-medium ${position.turn === 'w' ? 'text-white bg-gray-800' : 'text-black bg-gray-200'} px-2 py-1 rounded`}>
