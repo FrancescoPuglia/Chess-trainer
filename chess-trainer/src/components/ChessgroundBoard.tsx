@@ -178,62 +178,53 @@ export const ChessgroundBoard: React.FC<ChessgroundBoardProps> = React.memo(({
   });
 
   /**
-   * Memoized chessground configuration
+   * Memoized chessground configuration - MINIMAL CONFIG
    */
-  const chessgroundConfig = useMemo((): ChessgroundConfig => {
-    // Parse pieces from FEN for initial position
-    const pieces = parseFenToPieces(fen);
+  const chessgroundConfig = useMemo((): ChessgroundConfig => ({
+    orientation,
+    viewOnly: viewOnly || !interactive,
+    coordinates,
     
-    return {
-      orientation,
-      viewOnly: viewOnly || !interactive,
-      coordinates,
-      
-      // Set pieces directly in config
-      pieces,
-      
-      // Animation settings
-      animation: {
-        enabled: enableSmoothAnimation,
-        duration: enableSmoothAnimation ? 150 : 0,
-      },
-      
-      // Move settings
-      movable: {
-        free: false,
-        color: interactive && !viewOnly ? 'both' : undefined,
-        showDests: interactive && showDestinations,
-        events: {
-          after: (orig, dest, metadata) => {
-            onMove?.(orig, dest, metadata);
-          },
-        },
-      },
-      
-      // Selection settings
-      selectable: {
-        enabled: interactive && !viewOnly,
-      },
-      
-      // Visual settings
-      premovable: {
-        enabled: false, // Disabled for video study sessions
-      },
-      
-      highlight: {
-        lastMove: showLastMove,
-        check: showCheck,
-      },
-      
-      // Events
+    // Animation settings
+    animation: {
+      enabled: enableSmoothAnimation,
+      duration: enableSmoothAnimation ? 150 : 0,
+    },
+    
+    // Move settings
+    movable: {
+      free: false,
+      color: interactive && !viewOnly ? 'both' : undefined,
+      showDests: interactive && showDestinations,
       events: {
-        select: (square) => {
-          onSelect?.(square);
+        after: (orig, dest, metadata) => {
+          onMove?.(orig, dest, metadata);
         },
       },
-    };
-  }, [
-    fen, // Add fen as dependency
+    },
+    
+    // Selection settings
+    selectable: {
+      enabled: interactive && !viewOnly,
+    },
+    
+    // Visual settings
+    premovable: {
+      enabled: false, // Disabled for video study sessions
+    },
+    
+    highlight: {
+      lastMove: showLastMove,
+      check: showCheck,
+    },
+    
+    // Events
+    events: {
+      select: (square) => {
+        onSelect?.(square);
+      },
+    },
+  }), [
     orientation,
     viewOnly,
     interactive,
@@ -253,14 +244,44 @@ export const ChessgroundBoard: React.FC<ChessgroundBoardProps> = React.memo(({
     if (!boardRef.current) return;
     
     try {
-      // Create chessground instance with pieces in config
+      // Create chessground instance
       console.log('🔍 INIT FEN:', fen);
-      console.log('🔍 CONFIG PIECES:', chessgroundConfig.pieces?.size);
       
       const cg = Chessground(boardRef.current, chessgroundConfig);
       chessgroundRef.current = cg;
       
-      console.log('✅ Chessground created with pieces in config');
+      // FORCE FIX: Set pieces with forced layout update
+      console.log('🎯 FORCING PIECES AND LAYOUT...');
+      
+      // Method 1: Standard pieces from FEN
+      const pieces = parseFenToPieces(fen);
+      console.log('📋 PIECES PARSED:', pieces.size);
+      
+      // Method 2: Force CSS recalculation
+      const boardElement = boardRef.current;
+      boardElement.style.display = 'none';
+      boardElement.offsetHeight; // Force reflow
+      boardElement.style.display = '';
+      
+      // Method 3: Set pieces after DOM is stable
+      setTimeout(() => {
+        console.log('⏰ DELAYED PIECE SETTING...');
+        cg.setPieces(pieces);
+        
+        // Force layout recalculation
+        cg.redrawAll();
+        
+        // Another attempt after CSS settling
+        setTimeout(() => {
+          console.log('⏰ FINAL PIECE SETTING...');
+          cg.setPieces(pieces);
+          cg.redrawAll();
+          
+          console.log('✅ ALL METHODS APPLIED');
+        }, 200);
+      }, 100);
+      
+      console.log('✅ Chessground initialized');
       
       setState(prev => ({
         ...prev,
@@ -411,10 +432,35 @@ export const ChessgroundBoard: React.FC<ChessgroundBoardProps> = React.memo(({
       className={`chessground-container ${className}`}
       style={boardStyle}
     >
+      <style>{`
+        /* FORCE PIECE POSITIONING FIX */
+        .chessground-board-element piece {
+          position: absolute !important;
+          transition: transform 0.2s ease-out !important;
+        }
+        
+        /* Force board layout */
+        .chessground-board-element cg-container {
+          position: relative !important;
+          display: block !important;
+        }
+        
+        .chessground-board-element cg-board {
+          position: relative !important;
+          width: 100% !important;
+          height: 100% !important;
+        }
+        
+        /* Ensure proper square positioning */
+        .chessground-board-element cg-board square {
+          position: absolute !important;
+        }
+      `}</style>
+      
       <div 
         ref={boardRef}
         className="chessground-board-element"
-        style={{ width: '100%', height: '100%' }}
+        style={{ width: '100%', height: '100%', position: 'relative' }}
       />
       
       {/* Development info */}
